@@ -32,6 +32,6 @@ services:
       - key: MAX_MCAP_SOL
         value: "400"
       - key: X_URL
-        value: https://x.com/spl16
+        value: https://x.com/splsixteen
       - key: PLATFORM_MINT
         sync: false
