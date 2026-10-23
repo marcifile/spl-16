@@ -1,0 +1,25 @@
+{
+  "name": "spline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "spline (SPL-16): draw the curve, launch the coin. Hand-drawn bonding curves on Meteora DBC.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js"
+  },
+  "dependencies": {
+    "@meteora-ag/dynamic-bonding-curve-sdk": "^2.0.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.98.0",
+    "better-sqlite3": "^12.2.0",
+    "bn.js": "^5.2.5",
+    "bs58": "^6.0.0",
+    "express": "^4.22.3",
+    "sharp": "^0.35.5",
+    "tweetnacl": "^1.0.3"
+  }
+}

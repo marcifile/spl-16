@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: spline
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/state
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: SITE_URL
+        value: https://spline.fun
+      - key: NODE_VERSION
+        value: 22
+      - key: HELIUS_API_KEY
+        sync: false
+      - key: HOUSE_WALLET
+        sync: false
+      - key: HOUSE_WALLET_SECRET
+        sync: false
+      - key: PINATA_JWT
+        sync: false
+      - key: PINATA_GATEWAY
+        sync: false
+      - key: START_MCAP_SOL
+        value: "28"
+      - key: MAX_MCAP_SOL
+        value: "400"
+      - key: X_URL
+        value: https://x.com/splinespl
+      - key: PLATFORM_MINT
+        sync: false
