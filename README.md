@@ -1,4 +1,4 @@
-# spline · SPL-16
+# SPL-16 · the Spline Standard
 
 Draw the curve. Launch the coin. Hand-drawn bonding curves on Meteora DBC.
 

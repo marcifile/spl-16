@@ -24,7 +24,7 @@ const pub = c => c && ({ ...c, points: JSON.parse(c.points), hist: undefined });
 app.get('/api/state', (req, res) => {
   const coins = db.prepare('select * from coins order by created_at desc limit 200').all().map(pub);
   const t = db.prepare('select count(*) coins, coalesce(sum(migrated),0) graduated, coalesce(sum(quote_reserve_sol),0) tvl, coalesce(sum(fees_sol),0) fees from coins').get();
-  res.json({ coins, totals: t, site: site(), x: process.env.X_URL || 'https://x.com/splinespl', ca: process.env.PLATFORM_MINT || null, config: { startMcapSol: C.START_MCAP_SOL, maxMcapSol: C.MAX_MCAP_SOL, taxSeconds: C.TAX_SECONDS, maxTaxBps: C.MAX_FEE_BPS } });
+  res.json({ coins, totals: t, site: site(), x: process.env.X_URL || 'https://x.com/spl16', ca: process.env.PLATFORM_MINT || null, config: { startMcapSol: C.START_MCAP_SOL, maxMcapSol: C.MAX_MCAP_SOL, taxSeconds: C.TAX_SECONDS, maxTaxBps: C.MAX_FEE_BPS } });
 });
 app.get('/api/coin/:mint', (req, res) => {
   const c = db.prepare('select * from coins where mint=?').get(req.params.mint);

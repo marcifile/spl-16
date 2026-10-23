@@ -35,9 +35,9 @@ function home() {
   app.innerHTML = `<div class="wrap">
   <section class="hero">
     <div>
-      <span class="std">SPL-16 · THE SPLINE STANDARD</span>
+      <span class="std">THE SPLINE STANDARD · REV 2026-10</span>
       <h1>Draw the curve.<br><em>Launch the coin.</em></h1>
-      <p>Every coin here trades on a bonding curve its creator drew by hand. Up to sixteen price points, any shape — written into the pool config on Meteora and enforced on chain from the first buy.</p>
+      <p>SPL-16 is a standard for hand-drawn bonding curves. Every coin here trades on a curve its creator drew. Up to sixteen price points, any shape — written into the pool config on Meteora and enforced on chain from the first buy.</p>
       <div class="cta"><a class="btn pri big" href="/lab"><i data-lucide="pen-tool"></i>Draw a coin</a><a class="btn big" href="/standard">Read the standard</a></div>
     </div>
     <div class="art"><svg viewBox="0 0 1000 561"><use href="#swan"/></svg><span class="cap">one line · sixteen points · on chain</span></div>
@@ -238,11 +238,11 @@ function standard() {
   <table><tr><th>field</th><th>value</th></tr><tr><td>total supply</td><td>1,000,000,000 · 6 decimals</td></tr><tr><td>quote</td><td>SOL</td></tr><tr><td>launch mcap (bottom of canvas)</td><td>${S.config.startMcapSol} SOL</td></tr><tr><td>ceiling mcap (top of canvas)</td><td>${S.config.maxMcapSol} SOL</td></tr><tr><td>migration</td><td>Meteora DAMM v2, liquidity permanently locked</td></tr><tr><td>mint authority</td><td>revoked at creation</td></tr><tr><td>metadata update authority</td><td>none — spline does not mutate</td></tr></table>
   <h2>4. Sniper tax (optional)</h2><p>A coin may launch with a buy-fee schedule: <code>${S.config.maxTaxBps / 100}%</code> at creation decaying to <code>1%</code> over <code>${S.config.taxSeconds}</code> seconds, using the DBC exponential fee scheduler. The decay shape is chosen by the creator. Fees collected are split between the creator and spline per the config and can only decrease over time — the scheduler cannot raise a fee.</p>
   <h2>5. Fees</h2><p>Trading fees on every curve are collected in SOL. The creator receives 50% of fees as the pool creator; spline receives 50% as the config partner. Both claim directly from the pool; spline never holds creator funds.</p>
-  <h2>6. Identity</h2><p>An SPL-16 token's image is its own curve rendered as a single stroke. The sixteen heights are stored in the token's metadata attributes, so any client can redraw the curve from the token alone.</p>
+  <h2>6. Identity</h2><p>An SPL-16 token's image is its own curve rendered as a single stroke. The sixteen heights are stored in the token's metadata attributes, so any client can redraw the curve from the token alone. The reference implementation lives at spl-16.com.</p>
   <h2>7. What this is not</h2><p>It is not a new token program. SPL-16 tokens are ordinary SPL tokens and trade anywhere. It is not a promise about price: the curve fixes what each buyer pays on the way up, not where the market goes after graduation.</p>
   </div>`;
 }
-function notFound() { app.innerHTML = `<div class="wrap"><div class="card empty"><b>Nothing here.</b><a href="/">Back to spline</a></div></div>`; }
+function notFound() { app.innerHTML = `<div class="wrap"><div class="card empty"><b>Nothing here.</b><a href="/">Back to SPL-16</a></div></div>`; }
 
 // ---------- router ----------
 async function render() {

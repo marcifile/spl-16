@@ -10,7 +10,7 @@ b,strong{font-weight:600}
 .std{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--ink3)}
 /* header */
 .top{position:sticky;top:0;z-index:5;height:60px;display:flex;align-items:center;gap:28px;padding:0 32px;background:rgba(251,250,246,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.wm{font-family:var(--serif);font-weight:700;font-size:21px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.wm{font-family:var(--mono);font-weight:500;font-size:17px;letter-spacing:.04em;display:flex;align-items:center;gap:10px}
 .mark{display:inline-block;width:36px;height:20px;color:var(--ink)}
 .mark svg{width:100%;height:100%;display:block}
 .nav{display:flex;gap:22px;font-weight:500;color:var(--ink2);font-size:13.5px}

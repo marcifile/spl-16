@@ -14,7 +14,7 @@ services:
       - key: DATA_DIR
         value: /data
       - key: SITE_URL
-        value: https://spline.fun
+        value: https://spl-16.com
       - key: NODE_VERSION
         value: 22
       - key: HELIUS_API_KEY
@@ -32,6 +32,6 @@ services:
       - key: MAX_MCAP_SOL
         value: "400"
       - key: X_URL
-        value: https://x.com/splinespl
+        value: https://x.com/spl16
       - key: PLATFORM_MINT
         sync: false
