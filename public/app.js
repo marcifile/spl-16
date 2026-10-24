@@ -41,10 +41,13 @@ function canvasHTML() {
       <div class="grid-bg"></div>
       <div class="stations" id="stations"></div>
       <svg id="svg" viewBox="0 0 1000 560" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#111114" stop-opacity=".06"/><stop offset="1" stop-color="#111114" stop-opacity="0"/></linearGradient></defs>
-        <g id="ticks"></g><path id="area" fill="url(#fill)"/><path id="raw" fill="none" stroke="#9a9aa3" stroke-width="1.5" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path id="strip" fill="none" stroke="#e9dcc0" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/><path id="line" fill="none" stroke="#111114" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><g id="fixes"></g></svg>
+        <g id="ticks"></g><path id="area" fill="url(#fill)"/><g id="ink"></g><path id="raw" fill="none"/><path id="strip" pathLength="1" fill="none" stroke="#e9dcc0" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/><path id="line" pathLength="1" fill="none" stroke="#111114" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><g id="fixes"></g></svg>
       <div id="ducks"></div>
+      <svg class="wm-swan" viewBox="0 0 1000 561"><use href="#swan"/></svg>
+      <svg class="ghost" id="ghost" viewBox="0 0 1000 560" preserveAspectRatio="none"><path id="gp" d="M70,500 C260,492 380,470 470,420 C560,370 620,260 700,200 C770,150 860,120 930,90" fill="none" stroke="#111114" stroke-opacity=".22" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke" pathLength="1"/></svg>
+      <div class="nib" id="nib"><svg viewBox="0 0 24 24"><path d="M3 21l3.5-1 11-11-2.5-2.5-11 11L3 21z" fill="#111114"/><path d="M15 6.5l2.5 2.5 2.2-2.2a1.2 1.2 0 000-1.7l-.8-.8a1.2 1.2 0 00-1.7 0L15 6.5z" fill="#111114"/></svg></div>
       <div class="ylab" id="ylab"></div><div class="xlab" id="xlab"></div>
-      <div class="hint" id="hint"><b>Draw left to right</b>Your stroke is held at 16 stations. Price can only go up.</div>
+      <div class="hint" id="hint"><b>Draw here, left to right</b>Release, and sixteen weights pin your line in place.</div>
       <div id="anns"></div><div class="toast" id="toast">price can't go down — that part was flattened</div>
     </div></div>
     <div class="legend"><span><span class="duckleg">${DUCK}</span>16 points (ducks)</span><span><span class="sw strip"></span>the spline</span><span><span class="sw" style="background:var(--bad)"></span>flattened</span><span class="r mono">y · mcap SOL · x · supply sold</span></div>
@@ -102,7 +105,7 @@ function mountCanvas(root, { compact = false } = {}) {
   function set(id, v) { const el = $(id); if (!el) return; if (el.textContent !== v) { el.textContent = v; el.classList.add('hot'); setTimeout(() => el.classList.remove('hot'), 250); } }
   function paintPreview() { $('#pv').innerHTML = logoData ? `<img src="${logoData}" alt="">` : (pts ? iconSvg(pts.map(price)) : ''); }
   function render(final) {
-    $('#raw').setAttribute('d', raw.length > 1 ? 'M' + raw.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L') : '');
+    $('#ghost').classList.toggle('off', !!(pts || raw.length));
     const rule = $('#rule');
     if (!pts) { ['#line', '#area', '#strip'].forEach(i => $(i).setAttribute('d', '')); $('#ducks').innerHTML = ''; $('#fixes').innerHTML = ''; $('#anns').innerHTML = ''; $('#hint').classList.remove('off'); rule.className = 'rule'; rule.innerHTML = '<i></i>price only goes up'; ['#k-grad', '#k-first', '#k-buy', '#k-mcap', '#k-shape'].forEach(k => ($(k).textContent = '—')); document.querySelectorAll('.shape').forEach(s => s.classList.remove('on')); stepOn(2, false); stepOn(3, false); stepOn(4, false); paintPreview(); return; }
     $('#hint').classList.add('off');
@@ -111,13 +114,13 @@ function mountCanvas(root, { compact = false } = {}) {
     const spline = (() => { let s = `M${pts[0].x},${pts[0].y}`; for (let i = 0; i < N - 1; i++) { const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2; const c1y = Math.min(p1.y, Math.max(p2.y, p1.y + (p2.y - p0.y) / 6)), c2y = Math.max(p2.y, Math.min(p1.y, p2.y - (p3.y - p1.y) / 6)); s += ` C${(p1.x + (p2.x - p0.x) / 6).toFixed(1)},${c1y.toFixed(1)} ${(p2.x - (p3.x - p1.x) / 6).toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`; } return s; })();
     void d; void sm;
     $('#strip').setAttribute('d', spline); $('#line').setAttribute('d', spline); $('#area').setAttribute('d', spline + ` L${pts[N - 1].x},${H - PAD} L${pts[0].x},${H - PAD} Z`);
-    $('#ducks').innerHTML = pts.map((p, i) => `<span class="duck${fixed.includes(i) ? ' bad' : ''}" style="left:${p.x / W * 100}%;top:${p.y / H * 100}%" title="point ${i + 1}">${DUCK}</span>`).join('');
+    $('#ducks').innerHTML = pts.map((p, i) => `<span class="duck${fixed.includes(i) ? ' bad' : ''}" style="left:${p.x / W * 100}%;top:${p.y / H * 100}%;--i:${i}" title="point ${i + 1}">${DUCK}</span>`).join('');
     $('#fixes').innerHTML = fixed.map(i => `<line x1="${pts[i - 1].x}" y1="${pts[i - 1].y}" x2="${pts[i].x}" y2="${pts[i].y}" stroke="#c8443a" stroke-width="3" vector-effect="non-scaling-stroke"/>`).join('');
     if (fixed.length) { rule.className = 'rule warn'; rule.innerHTML = `<i></i>${fixed.length} dip${fixed.length > 1 ? 's' : ''} flattened`; if (final) { clearTimeout(toastT); $('#toast').classList.add('on'); toastT = setTimeout(() => $('#toast').classList.remove('on'), 2200); } }
     else { rule.className = 'rule'; rule.innerHTML = '<i></i>valid · price only goes up'; }
     const P = pts.map(price); paintPreview();
     const dif = P.map((v, i) => (i ? v - P[i - 1] : 0)); let bi = 1; for (let i = 1; i < N; i++) if (dif[i] > dif[bi]) bi = i; const flats = dif.filter(v => v < .012).length;
-    const r = cv.getBoundingClientRect(); const px = p => ({ l: p.x / W * r.width, t: p.y / H * r.height }); const a = px(pts[bi]), b = px(pts[Math.max(1, Math.floor(N / 4))]);
+    const r = cv.getBoundingClientRect(); const px = p => ({ l: Math.max(80, Math.min(r.width - 80, p.x / W * r.width)), t: p.y / H * r.height }); const a = px(pts[bi]), b = px(pts[Math.max(1, Math.floor(N / 4))]);
     $('#anns').innerHTML = `<div class="ann" style="left:${a.l}px;top:${a.t - 14}px">steepest · station ${bi + 1}</div>` + (flats >= 4 ? `<div class="ann soft" style="left:${b.l}px;top:${b.t}px">${Math.round(flats / (N - 1) * 100)}% of supply near one price</div>` : '');
     clearTimeout(quoteT); quoteT = setTimeout(() => quote(P, final), final ? 0 : 120);
   }
@@ -130,13 +133,20 @@ function mountCanvas(root, { compact = false } = {}) {
     updateLaunch();
   }
   function updateLaunch() { const b = $('#launch'); const named = $('#nm').value.trim().length > 0 && $('#tk').value.trim().length >= 2; b.disabled = !(pts && lastQ && named); b.textContent = !wallet ? 'Connect wallet to launch' : !pts ? 'Draw a curve first' : !named ? 'Name it first' : 'Launch this curve'; }
-  const start = e => { if (e.button && e.button !== 0) return; drawing = true; raw = [toSvg(e)]; pts = null; render(); e.preventDefault(); };
-  const move = e => { if (!drawing) return; const p = toSvg(e); if (p.x >= raw[raw.length - 1].x) raw.push(p); if (raw.length > 3) { pts = snap(raw); render(false); } e.preventDefault(); };
-  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) pts = snap(raw); raw = []; render(true); };
+  // ink: a pen stroke whose width follows speed — slow is heavy, fast is thin
+  let lastT = 0, inkW = 4;
+  const ink = $('#ink');
+  const inkSeg = (a, b, w) => ink.insertAdjacentHTML('beforeend', `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke-width="${w.toFixed(2)}"/>`);
+  const start = e => { if (e.button && e.button !== 0) return; drawing = true; ink.innerHTML = ''; ink.classList.remove('fade'); cv.classList.remove('settle'); raw = [toSvg(e)]; lastT = performance.now(); inkW = 4; pts = null; render(); e.preventDefault(); };
+  const move = e => { if (!drawing) return; const p = toSvg(e); const q = raw[raw.length - 1]; if (p.x >= q.x) { const t = performance.now(), v = Math.hypot(p.x - q.x, p.y - q.y) / Math.max(1, t - lastT); lastT = t; inkW = inkW * .7 + Math.max(1.3, Math.min(5.5, 5.8 - v * 2.2)) * .3; inkSeg(q, p, inkW); raw.push(p); } $('#ghost').classList.add('off'); $('#hint').classList.add('off'); e.preventDefault(); };
+  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) { pts = snap(raw); cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); ink.classList.add('fade'); } raw = []; render(true); };
+  const nib = $('#nib');
+  cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); nib.style.transform = `translate(${e.clientX - r.left}px,${e.clientY - r.top - 22}px)`; nib.classList.add('on'); nib.classList.toggle('down', drawing); });
+  cv.addEventListener('mouseleave', () => nib.classList.remove('on'));
   cv.addEventListener('mousedown', start); window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
   cv.addEventListener('touchstart', start, { passive: false }); window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end);
-  document.querySelectorAll('.shape').forEach(s => (s.onclick = () => fromPoints(PRESETS[s.dataset.s])));
-  $('#clear').onclick = () => { pts = null; raw = []; fixed = []; lastQ = null; render(); };
+  document.querySelectorAll('.shape').forEach(s => (s.onclick = () => { ink.innerHTML = ''; cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); fromPoints(PRESETS[s.dataset.s]); }));
+  $('#clear').onclick = () => { pts = null; raw = []; fixed = []; lastQ = null; ink.innerHTML = ''; render(); };
   $('#s2').addEventListener('click', () => { if (!$('#s2').classList.contains('locked')) stepOn(3, true); });
   ['#nm', '#tk'].forEach(id => $(id).addEventListener('input', () => { stepOn(4, true); updateLaunch(); }));
   $('#s3').addEventListener('click', () => { if (!$('#s3').classList.contains('locked')) stepOn(4, true); });
@@ -204,6 +214,19 @@ function coinCard(c) {
     <div class="pc-f"><span>${c.migrated ? 'graduated' : pct + '% to graduation'}</span><span>${c.trades ? c.trades + ' trades · ' : ''}${ago(c.created_at)}</span></div></a>`;
 }
 let SORT = 'mcap', SHAPE = '', QRY = '';
+// hover a plate to read the curve: what a buyer pays at any point of supply
+function scrub(el, c, W, H) {
+  if (!el) return; const pad = 14, lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
+  el.insertAdjacentHTML('beforeend', '<div class="scrub"><i></i><span></span></div>'); const sc = el.querySelector('.scrub'), lab = sc.querySelector('span');
+  el.addEventListener('mousemove', e => {
+    const r = el.getBoundingClientRect(); const f = Math.max(0, Math.min(1, ((e.clientX - r.left) / r.width * W - pad) / (W - 2 * pad)));
+    const x = f * (N - 1), i = Math.min(N - 2, Math.floor(x)), t = x - i, v = c.points[i] + (c.points[i + 1] - c.points[i]) * t, m = lo + (hi - lo) * v;
+    const px = (pad + (W - 2 * pad) * f) / W * r.width, py = (H - pad - (H - 2 * pad) * v) / H * r.height;
+    sc.style.setProperty('--x', px + 'px'); sc.style.setProperty('--y', py + 'px'); sc.classList.add('on');
+    lab.textContent = `${Math.round(f * 100)}% sold · ${m.toFixed(1)} SOL mcap`; lab.classList.toggle('l', px > r.width - 190);
+  });
+  el.addEventListener('mouseleave', () => sc.classList.remove('on'));
+}
 function home() {
   const T = S.totals; const by = k => [...S.coins].sort((a, b) => (b[k] || 0) - (a[k] || 0));
   const spot = by('volume_sol')[0]?.volume_sol ? by('volume_sol')[0] : S.coins[0];
@@ -234,6 +257,7 @@ function home() {
     xs.sort(SORT === 'recent' ? (a, b) => b.created_at - a.created_at : SORT === 'volume' ? (a, b) => (b.volume_sol || 0) - (a.volume_sol || 0) : SORT === 'progress' ? (a, b) => (b.progress || 0) - (a.progress || 0) : (a, b) => mcapOf(b) - mcapOf(a));
     $('#cgrid').innerHTML = xs.length ? xs.map(coinCard).join('') : `<div class="card empty" style="grid-column:1/-1"><b>${S.coins.length ? 'Nothing matches.' : 'No coins yet.'}</b><a href="/draw">Draw one →</a></div>`;
   };
+  if (spot) scrub($('.spot-c'), spot, 840, 200);
   $('#q').oninput = e => { QRY = e.target.value; paint(); };
   $('#sort').onclick = e => { const k = e.target.closest('button')?.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
   $('#shape').onclick = e => { const b = e.target.closest('button'); if (!b) return; SHAPE = b.dataset.s; document.querySelectorAll('#shape button').forEach(x => x.classList.toggle('on', x === b)); paint(); };
@@ -503,5 +527,5 @@ async function render() {
   if (window.lucide) lucide.createIcons();
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
-fetch('/swan.svg').then(r => r.text()).then(t => { const inner = t.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''); document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="swan" viewBox="0 0 1000 561">${inner}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 1000 561"><use href="#swan"/></svg>`; const m2 = $('#mark2'); if (m2) m2.innerHTML = $('#mark').innerHTML; });
+fetch('/swan.svg').then(r => r.text()).then(t => { const inner = t.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''); document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="swan" viewBox="0 0 1000 561">${inner}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 1000 561"><use href="#swan"/></svg>`; const m2 = $('#mark2'); if (m2) m2.innerHTML = $('#mark').innerHTML; const b = $('.nb-brand'); const ink = () => { b.classList.remove('ink'); void b.offsetWidth; b.classList.add('ink'); }; ink(); b.addEventListener('mouseenter', ink); });
 render();
