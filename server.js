@@ -8,6 +8,7 @@ import * as C from './lib/curve.js';
 import { buildLaunchTx, confirmLaunch } from './lib/launch.js';
 import { iconSvg, iconPng, glyphSvg } from './lib/icon.js';
 import { putFile, putJson, assetsDir } from './lib/store.js';
+import * as L from './lib/live.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -23,15 +24,22 @@ const pub = c => c && ({ ...c, points: JSON.parse(c.points), hist: undefined });
 // ---- read ----
 app.get('/api/state', (req, res) => {
   const coins = db.prepare('select * from coins order by created_at desc limit 200').all().map(pub);
-  const t = db.prepare('select count(*) coins, coalesce(sum(migrated),0) graduated, coalesce(sum(quote_reserve_sol),0) tvl, coalesce(sum(fees_sol),0) fees from coins').get();
+  const t = db.prepare('select count(*) coins, coalesce(sum(migrated),0) graduated, coalesce(sum(quote_reserve_sol),0) tvl, coalesce(sum(fees_sol),0) fees, coalesce(sum(volume_sol),0) volume, coalesce(sum(trades),0) trades from coins').get();
   res.json({ coins, totals: t, site: site(), x: process.env.X_URL || 'https://x.com/splsixteen', ca: process.env.PLATFORM_MINT || null, config: { startMcapSol: C.START_MCAP_SOL, maxMcapSol: C.MAX_MCAP_SOL, taxSeconds: C.TAX_SECONDS, maxTaxBps: C.MAX_FEE_BPS } });
 });
 app.get('/api/coin/:mint', (req, res) => {
   const c = db.prepare('select * from coins where mint=?').get(req.params.mint);
   if (!c) return res.status(404).json({ error: 'no such coin' });
-  res.json({ coin: pub(c), hist: JSON.parse(c.hist || '[]'), quote: safeQuote(JSON.parse(c.points), c.tax_start_bps) });
+  res.json({ coin: pub(c), hist: JSON.parse(c.hist || '[]'), quote: safeQuote(JSON.parse(c.points), c.tax_start_bps), trades: db.prepare('select * from trades where mint=? order by at desc limit 100').all(c.mint) });
 });
 app.get('/api/mine/:wallet', (req, res) => res.json({ coins: db.prepare('select * from coins where creator=? order by created_at desc').all(req.params.wallet).map(pub) }));
+const liveCache = new Map();
+app.get('/api/coin/:mint/live', async (req, res) => {
+  const c = db.prepare('select * from coins where mint=?').get(req.params.mint); if (!c) return res.status(404).json({ error: 'no such coin' });
+  if (!DRY && c.pool !== 'dry') { const hit = liveCache.get(c.mint); if (!hit || Date.now() - hit > 6000) { liveCache.set(c.mint, Date.now()); try { await L.refresh(c); } catch (e) { console.error('live', e.message); } } }
+  const f = db.prepare('select * from coins where mint=?').get(c.mint);
+  res.json({ coin: pub(f), hist: JSON.parse(f.hist || '[]'), trades: db.prepare('select * from trades where mint=? order by at desc limit 100').all(c.mint) });
+});
 app.get('/api/presets', (req, res) => res.json(Object.fromEntries(Object.keys(C.PRESETS).map(k => [k, C.presetPoints(k)]))));
 
 // live quote for a drawing (real DBC math)
@@ -98,21 +106,15 @@ function record({ mint, pool, config, name, ticker, description, image, logo, ur
     .run(mint, pool, config, name, ticker, description || '', image, logo || null, uri, creator, JSON.stringify(points), q.shape, Number(taxStartBps) || 0, q.toGraduateSol, q.startMcapSol, q.gradMcapSol, sig, now());
 }
 
-// ---- price sampler: every 2 min, read each live pool ----
-async function sample() {
-  const live = db.prepare('select mint, pool, hist from coins where migrated=0 and pool<>\'dry\' order by last_seen asc limit 40').all();
-  for (const c of live) {
-    try {
-      const s = await P.poolStats(c.pool); if (!s) continue;
-      const hist = JSON.parse(c.hist || '[]'); hist.push([now(), Math.round(s.quoteReserveSol * 1e6) / 1e6, s.price]); while (hist.length > 720) hist.shift();
-      db.prepare('update coins set progress=?, quote_reserve_sol=?, price_sol=?, migrated=?, hist=?, last_seen=? where mint=?').run(s.progress, s.quoteReserveSol, s.price, s.migrated ? 1 : 0, JSON.stringify(hist), now(), c.mint);
-    } catch (e) { console.error('sample', c.mint, e.message); }
-  }
+// ---- live loop: every 30s refresh every pool that hasn't graduated (stats + new trades) ----
+async function loop() {
+  const live = db.prepare("select * from coins where migrated=0 and pool<>'dry' order by last_seen asc limit 60").all();
+  for (const c of live) { try { await L.refresh(c); } catch (e) { console.error('refresh', c.mint, e.message); } }
 }
-if (!DRY) { setInterval(sample, 120_000); setTimeout(sample, 5_000); }
+if (!DRY) { setInterval(loop, 30_000); setTimeout(loop, 3_000); }
 
 // pages
-for (const p of ['/lab', '/c/:m', '/standard', '/coins']) app.get(p, (req, res) => res.sendFile(path.join(ROOT, 'public', 'index.html')));
+for (const p of ['/lab', '/c/:m', '/standard', '/coins', '/mine']) app.get(p, (req, res) => res.sendFile(path.join(ROOT, 'public', 'index.html')));
 
 const port = Number(process.env.PORT || 8792);
 app.listen(port, () => console.log(`spline on http://localhost:${port} · ${DRY ? 'DRY RUN' : 'live'} · rpc ${P.rpcState().using} · house ${process.env.HOUSE_WALLET ? 'set' : 'MISSING'}`));
