@@ -27,7 +27,7 @@ const taxAt = s => { const r = Math.pow(100 / 9500, 1 / 60); const n = Math.min(
 // ---------- wallet ----------
 const provider = () => window.solana || window.phantom?.solana;
 async function connect() { const p = provider(); if (!p) { alert('No Solana wallet found. Install Phantom.'); return null; } const r = await p.connect(); wallet = r.publicKey.toString(); paintWallet(); return wallet; }
-function paintWallet() { const b = $('#wallet span'); b.textContent = wallet ? short(wallet) : 'Connect'; const m = $('#minelink'); if (m) m.style.display = wallet ? '' : 'none'; }
+function paintWallet() { const b = $('#wallet span'); b.textContent = wallet ? short(wallet) : 'Connect wallet'; $('#wallet').classList.toggle('pri', !wallet); }
 $('#wallet').onclick = async () => { if (wallet) { try { await provider().disconnect(); } catch {} wallet = null; paintWallet(); } else connect(); };
 provider()?.connect?.({ onlyIfTrusted: true }).then(r => { wallet = r.publicKey.toString(); paintWallet(); }).catch(() => {});
 async function state() { S = await (await fetch('/api/state')).json(); if (!PRESETS) PRESETS = await (await fetch('/api/presets')).json(); return S; }
@@ -47,7 +47,7 @@ function canvasHTML() {
       <div class="hint" id="hint"><b>Draw left to right</b>Your stroke is held at 16 stations. Price can only go up.</div>
       <div id="anns"></div><div class="toast" id="toast">price can't go down — that part was flattened</div>
     </div></div>
-    <div class="legend"><span><span class="duckleg">${DUCK}</span>16 points (ducks)</span><span><span class="sw strip"></span>the spline</span><span><span class="sw dash"></span>your stroke</span><span><span class="sw" style="background:var(--bad)"></span>flattened</span><span class="r mono">y · market cap, SOL &nbsp; x · supply sold on the curve</span></div>
+    <div class="legend"><span><span class="duckleg">${DUCK}</span>16 points (ducks)</span><span><span class="sw strip"></span>the spline</span><span><span class="sw" style="background:var(--bad)"></span>flattened</span><span class="r mono">y · mcap SOL · x · supply sold</span></div>
   </div>
   <div class="side">
     <div class="card step" id="s1"><div class="sec">
@@ -180,38 +180,68 @@ function mountCanvas(root, { compact = false } = {}) {
 
 // ---------- pages ----------
 const mcapOf = c => (c.price_sol ? c.price_sol * 1e9 : c.start_mcap_sol);
+const bigGlyph = points => { const { d, pts } = curvePath(points, 100, 100, 24); const e = pts[pts.length - 1]; return `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="currentColor" opacity=".07"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".38"/><circle cx="${e[0].toFixed(1)}" cy="${e[1].toFixed(1)}" r="4.5" fill="currentColor" opacity=".5"/></svg>`; };
 function coinCard(c) {
-  const pct = Math.round((c.progress || 0) * 100);
-  return `<a class="card coin" href="/c/${c.mint}"><div class="ic">${coinIcon(c)}</div><div>
-    <div class="t">${esc(c.name)} <span class="tk">$${esc(c.ticker)}</span></div>
-    <div class="m"><span class="g">${glyph(c.points, 36, 18)}</span><span>${esc(c.shape)}</span><span>·</span><span>${ago(c.created_at)}</span>${c.tax_start_bps ? `<span class="tag">tax</span>` : ''}${c.migrated ? `<span class="tag good">graduated</span>` : ''}</div>
-    <div class="bar"><i style="width:${c.migrated ? 100 : pct}%"></i></div>
-    <div class="m2"><b>${mcapOf(c).toFixed(1)} SOL</b> mcap · ${sol(c.quote_reserve_sol, 2)} / ${sol(c.to_graduate_sol, 0)}${c.trades ? ` · ${c.trades} trades` : ''}</div></div></a>`;
+  const pct = c.migrated ? 100 : Math.round((c.progress || 0) * 100);
+  return `<a class="cc" href="/c/${c.mint}">
+    <div class="cl"><div class="lg">${coinIcon(c)}</div><span class="tk">$${esc(c.ticker)}</span><b class="mc">${mcapOf(c).toFixed(1)}<small> SOL</small></b>
+    <span class="ln"><span class="g">${glyph(c.points, 22, 12)}</span>${esc(c.shape)} · ${c.migrated ? 'graduated' : pct + '% to graduation'}${c.tax_start_bps && Date.now() - c.created_at < 600e3 ? ' · <em class="hot">tax on</em>' : ''}</span></div>
+    <div class="cr">${bigGlyph(c.points)}</div>
+    <div class="cbar"><i style="width:${Math.max(pct, 1)}%"></i></div></a>`;
 }
-function tape() {
-  const xs = S.coins.slice(0, 14); if (!xs.length) return '';
-  const item = c => `<a href="/c/${c.mint}" class="ti"><span class="g">${glyph(c.points, 30, 16)}</span><b>$${esc(c.ticker)}</b><span>${mcapOf(c).toFixed(1)} SOL</span><span class="p">${Math.round((c.progress || 0) * 100)}%</span></a>`;
-  const row = xs.map(item).join('');
-  return `<div class="tape"><span class="tl">Latest curves</span><div class="tt"><div class="tr">${row}${row}</div></div><a href="/coins" class="xl">All →</a></div>`;
+function heroCurve(P) {
+  const W = 420, H = 230, pad = 26; const pts = P.map((v, i) => [pad + (W - 2 * pad) * i / (N - 1), H - pad - (H - 2 * pad) * v]);
+  const { d } = curvePath(P, W, H, pad);
+  const grid = Array.from({ length: N }, (_, i) => `<line x1="${pts[i][0]}" x2="${pts[i][0]}" y1="${pad - 8}" y2="${H - pad}" stroke="#fff" stroke-opacity=".06"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="hc">${grid}<line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" stroke="#fff" stroke-opacity=".18"/>
+    <path d="${d}" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="9" stroke-linecap="round"/><path class="draw" d="${d}" fill="none" stroke="#f4f2ec" stroke-width="2" stroke-linecap="round" pathLength="1"/>
+    ${pts.map((p, i) => `<g class="dk" style="animation-delay:${(0.15 + i * 0.09).toFixed(2)}s" transform="translate(${(p[0] - 7).toFixed(1)},${(p[1] - 1).toFixed(1)}) scale(.32)"><path d="M22 2 L22 9" stroke="#f4f2ec" stroke-width="3"/><path d="M4 26 C4 15 13 9 23 9 C31 9 37 13 40 18 C41.5 21 40 26 36 26 Z" fill="#f4f2ec"/></g>`).join('')}</svg>`;
 }
-
+let SORT = 'mcap', SHAPE = '', QRY = '';
 function home() {
-  const latest = S.coins.slice(0, 6); const lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
-  app.innerHTML = `
-  <section class="hero2"><div class="wrap h2w">
-    <div class="h2t">
-      <span class="std">SPL-16 · THE SPLINE STANDARD</span>
-      <h1>Every coin gets its own curve.</h1>
-      <p>SPL-16 is a Solana launchpad on Meteora's Dynamic Bonding Curve. Other launchpads put every coin on the same curve. Here the creator draws it — the stroke is held at 16 price points, compiled into a dedicated DBC config, and enforced by Meteora's program from the first buy to graduation.</p>
-      <div class="chips"><span>Meteora DBC · one config per coin</span><span>16 points · 15 segments</span><span>SPL token · 1B supply · mint revoked</span><span>Graduates to DAMM v2 · LP locked</span></div>
-      <div class="cta"><a class="btn pri" href="#draw">Draw a curve</a><a class="btn" href="/standard">Read the standard</a></div>
+  const T = S.totals; const top = [...S.coins].sort((a, b) => (b.volume_sol || 0) - (a.volume_sol || 0))[0];
+  const shapes = [...new Set(S.coins.map(c => c.shape))];
+  const stat = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+  app.innerHTML = `<div class="page">
+  <section class="feat">
+    <div class="slide on">
+      <div class="ft"><span class="kick">SPL-16 · The spline standard</span><h1>Draw the curve your coin trades on.</h1>
+        <p>Every coin here runs on its own Meteora bonding curve, drawn by whoever launched it. Sixteen points become one on-chain config. Nobody can edit it afterwards — not the creator, not us.</p>
+        <div class="fstats">${stat('Coins drawn', T.coins)}${stat('SOL on curves', Number(T.tvl).toFixed(2))}${stat('Volume', Number(T.volume || 0).toFixed(2) + ' SOL')}${stat('Trades', T.trades || 0)}${stat('Graduated', T.graduated)}</div>
+        <div class="fbtn"><a class="btn light" href="/draw">Draw a curve <span>→</span></a><a class="btn darkb" href="/standard">Read the standard <span>→</span></a></div></div>
+      <div class="fart">${heroCurve(PRESETS.hockey || Object.values(PRESETS)[0])}</div>
     </div>
-    <figure class="h2p"><img src="/img/loft.jpg" alt="Two mold loft workers laying out full-size templates on the loft floor"><figcaption>Mold loft, Newport News Shipbuilding, c. 1941. Hull lines were laid down full size before steel was cut. <span>Library of Congress, FSA/OWI</span></figcaption></figure>
-  </div></section>
-  <div class="wrap" style="padding-top:0">
-  ${tape()}
+    ${top && top.volume_sol ? `<div class="slide">
+      <div class="ft"><span class="kick">Most traded · ${esc(top.shape)} curve</span><h1>${esc(top.name)} <span class="dim">$${esc(top.ticker)}</span></h1>
+        <p>${top.description ? esc(top.description) : `Drawn ${ago(top.created_at)} ago by ${short(top.creator)}.`}</p>
+        <div class="fstats">${stat('Market cap', mcapOf(top).toFixed(1) + ' SOL')}${stat('Volume', Number(top.volume_sol).toFixed(2) + ' SOL')}${stat('Trades', top.trades || 0)}${stat('To graduation', Math.round((top.progress || 0) * 100) + '%')}</div>
+        <div class="fbtn"><a class="btn light" href="/c/${top.mint}">Open $${esc(top.ticker)} <span>→</span></a></div></div>
+      <div class="fart">${heroCurve(top.points)}</div>
+    </div>` : ''}
+    <div class="dots"></div>
+  </section>
+  <div class="notice"><b>Price only goes up the curve.</b><span>Dips in a drawing are flattened before launch, and the config is immutable once it's on chain.</span><a href="/standard#anatomy">How a curve works →</a></div>
+  <div class="ctrl"><label class="search"><i data-lucide="search"></i><input id="q" placeholder="Search" value="${esc(QRY)}"></label>
+    <div class="r"><span class="lbl">Sort</span><div class="seg" id="sort">${[['mcap', 'Mcap'], ['recent', 'Recent'], ['volume', 'Volume']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <label class="sel"><select id="shape"><option value="">All shapes</option>${shapes.map(x => `<option ${SHAPE === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label></div></div>
+  <div class="cgrid" id="cgrid"></div></div>`;
+  const paint = () => {
+    let xs = S.coins.filter(c => (!SHAPE || c.shape === SHAPE) && (!QRY || (c.name + ' ' + c.ticker + ' ' + c.mint).toLowerCase().includes(QRY.toLowerCase())));
+    xs.sort(SORT === 'recent' ? (a, b) => b.created_at - a.created_at : SORT === 'volume' ? (a, b) => (b.volume_sol || 0) - (a.volume_sol || 0) : (a, b) => mcapOf(b) - mcapOf(a));
+    $('#cgrid').innerHTML = xs.length ? xs.map(coinCard).join('') : `<div class="card empty" style="grid-column:1/-1"><b>${S.coins.length ? 'No matches.' : 'No coins yet.'}</b><a href="/draw">Draw one →</a></div>`;
+  };
+  $('#q').oninput = e => { QRY = e.target.value; paint(); };
+  $('#sort').onclick = e => { const k = e.target.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
+  $('#shape').onchange = e => { SHAPE = e.target.value; paint(); };
+  paint();
+  // carousel
+  const sl = [...document.querySelectorAll('.feat .slide')]; const dots = $('.feat .dots');
+  if (sl.length > 1) { let i = 0; dots.innerHTML = sl.map((_, k) => `<i data-i="${k}" class="${k ? '' : 'on'}"></i>`).join(''); const go = k => { i = k; sl.forEach((x, j) => x.classList.toggle('on', j === k)); dots.querySelectorAll('i').forEach((x, j) => x.classList.toggle('on', j === k)); }; dots.onclick = e => e.target.dataset.i && go(+e.target.dataset.i); clearInterval(window.__car); window.__car = setInterval(() => document.contains(dots) ? go((i + 1) % sl.length) : clearInterval(window.__car), 8000); }
+}
+function drawPage() {
+  const lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
+  app.innerHTML = `<div class="page wide"><div class="ph2"><div><h1>Draw a curve</h1><p>Draw left to right. Your line is held at 16 points and becomes the coin's bonding curve on Meteora.</p></div><a class="xl" href="/standard">How it works →</a></div>
   <section class="lab" id="labroot"></section>
-
   <section class="explain" id="how">
     <div class="eh"><div><span class="std">FROM STROKE TO POOL</span><h2>What happens to your drawing</h2></div><p>Nothing about the curve is simulated. The board you draw on is the same math the pool will run.</p></div>
     <div class="flow">
@@ -223,34 +253,8 @@ function home() {
         ['05', 'Graduation', `When the SOL raised reaches your curve's threshold, the pool migrates to a Meteora DAMM v2 pool. Liquidity is locked permanently, split between creator and platform.`, flowArt(4)],
       ].map(([n, t, p, art]) => `<div class="fl"><div class="fa">${art}</div><span class="n">${n}</span><b>${t}</b><p>${p}</p></div>`).join('')}
     </div>
-  </section>
-
-  <section class="origin">
-    <figure class="op"><img src="/img/loftsman.jpg" alt="A loftsman checking a wooden frame template"><figcaption>Taking off the lines of a 173-foot subchaser, 1942. <span>Library of Congress, FSA/OWI</span></figcaption></figure>
-    <div class="ot">
-      <span class="std">WHY "SPLINE"</span>
-      <h2>Before software, curves were held by weights.</h2>
-      <p>Ship hulls and aircraft skins were drawn with a <b>spline</b>: a thin strip of wood bent across the drafting table and pinned in place by lead weights called <b>ducks</b>. The draftsman only chose where the ducks went. The strip found the fairest curve between them.</p>
-      <p>SPL-16 works the same way. You place sixteen points; Meteora's program holds the line. A bonding curve stops being a launchpad default and becomes a design decision — a slow ramp for a community coin, a cliff for a meme, steps for a project with milestones.</p>
-      <div class="lines"><img src="/img/lines.png" alt="Lines plan of a wooden knockabout hull"><span>Lines plan, Blanchard Jr. Knockabout, Hull No. 7 · HAER WA-181 · Library of Congress</span></div>
-    </div>
-  </section>
-
-  <section class="facts">
-    ${[
-      ['Token', 'Standard SPL token on the original Token program. 1,000,000,000 supply, 6 decimals. Mint and freeze authority revoked at creation; metadata immutable.'],
-      ['Quote', 'SOL. Every buy and sell settles against the pool\'s SOL vault — no order book, no off-chain matching.'],
-      ['Fees', '1% per trade after the sniper window. Half goes to the creator, half to the platform, claimable straight from the pool.'],
-      ['Sniper tax', 'Optional. 95% buy fee at open, decaying every 10 s to 1% at minute ten. The scheduler cannot raise a fee once it has fallen.'],
-      ['Graduation', 'At the curve\'s SOL threshold the pool migrates to Meteora DAMM v2. LP is permanently locked; creator and platform each hold half of the locked position\'s fees.'],
-      ['On-chain identity', 'The 16 points are stored in the token metadata. Any wallet or explorer can redraw the curve from the mint alone.'],
-    ].map(([k, v]) => `<div><b>${k}</b><p>${v}</p></div>`).join('')}
-  </section>
-
-  <section class="latest"><div class="ch" style="border:0;padding:8px 0 14px"><h2>Latest curves <span class="sub">${S.totals.coins} drawn · ${S.totals.graduated} graduated${S.totals.volume ? ` · ${Number(S.totals.volume).toFixed(1)} SOL traded` : ''}</span></h2><a href="/coins" class="xl">All coins →</a></div>
-  ${latest.length ? `<div class="grid">${latest.map(coinCard).join('')}</div>` : `<div class="card empty"><b>No coins yet.</b>Draw the first one above.</div>`}</section></div>`;
-  $('#labroot').classList.add('compact'); $('#labroot').insertAdjacentHTML('beforebegin', '<a id="draw" class="anchor"></a>');
-  mountCanvas($('#labroot'), { compact: true });
+  </section></div>`;
+  mountCanvas($('#labroot'));
 }
 // small diagrams for the five steps
 function flowArt(k) {
@@ -264,18 +268,13 @@ function flowArt(k) {
   if (k === 3) return `<svg viewBox="0 0 ${W} ${H}"><rect x="30" y="14" width="160" height="82" rx="6" fill="#fff" stroke="#111114"/><text x="42" y="32" font-family="JetBrains Mono" font-size="9" fill="#111114">DBC config</text>${['sqrtPrices[16]', 'liquidity[15]', 'fee scheduler', 'migration: DAMM v2'].map((t, i) => `<text x="42" y="${50 + i * 13}" font-family="JetBrains Mono" font-size="8.5" fill="#56565e">${t}</text>`).join('')}<path d="M176 24 v10 h-10" fill="none" stroke="#2f4a6d"/><text x="150" y="88" font-family="JetBrains Mono" font-size="8" fill="#1f8a5a">immutable</text></svg>`;
   return `<svg viewBox="0 0 ${W} ${H}">${base}<path d="${line}" fill="none" stroke="#111114" stroke-width="1.6"/><line x1="${pts[15][0]}" x2="${pts[15][0]}" y1="${pad}" y2="${H - pad}" stroke="#1f8a5a" stroke-dasharray="3 3"/><circle cx="${pts[15][0]}" cy="${pts[15][1]}" r="4.5" fill="#1f8a5a"/><text x="${pts[15][0] - 6}" y="${H - 18}" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#1f8a5a">→ DAMM v2</text></svg>`;
 }
-function coins() {
-  app.innerHTML = `<div class="wrap"><div class="ch" style="border:0;padding:0 0 18px"><h2 class="pg">All coins <span class="sub">${S.coins.length}</span></h2><a class="btn pri" href="/">Draw a coin</a></div>
-  ${S.coins.length ? `<div class="grid">${S.coins.map(coinCard).join('')}</div>` : `<div class="card empty"><b>No coins yet.</b><a href="/">Draw the first one.</a></div>`}</div>`;
-}
 async function mine() {
   if (!wallet) { try { await provider()?.connect?.({ onlyIfTrusted: true }).then(r => { wallet = r.publicKey.toString(); paintWallet(); }); } catch {} }
   if (!wallet) { app.innerHTML = `<div class="wrap"><div class="card empty"><b>Connect a wallet</b>to see the curves you drew.<div style="margin-top:14px"><button class="btn pri" id="mc">Connect</button></div></div></div>`; $('#mc').onclick = async () => { if (await connect()) mine(); }; return; }
   const j = await (await fetch(`/api/mine/${wallet}`)).json();
-  app.innerHTML = `<div class="wrap"><div class="ch" style="border:0;padding:0 0 18px"><h2 class="pg">Your curves <span class="sub">${j.coins.length} · ${short(wallet)}</span></h2><a class="btn pri" href="/">Draw another</a></div>
-  ${j.coins.length ? `<div class="grid">${j.coins.map(coinCard).join('')}</div>` : `<div class="card empty"><b>Nothing yet.</b><a href="/">Draw your first curve.</a></div>`}</div>`;
+  app.innerHTML = `<div class="wrap"><div class="ch" style="border:0;padding:0 0 18px"><h2 class="pg">Your curves <span class="sub">${j.coins.length} · ${short(wallet)}</span></h2><a class="btn pri" href="/draw">Draw another</a></div>
+  ${j.coins.length ? `<div class="cgrid">${j.coins.map(coinCard).join('')}</div>` : `<div class="card empty"><b>Nothing yet.</b><a href="/draw">Draw your first curve.</a></div>`}</div>`;
 }
-function lab() { app.innerHTML = `<div class="wrap"><div class="ch" style="border:0;padding:0 0 18px"><h2 class="pg">Lab</h2><span class="std">16 POINTS · METEORA DBC</span></div><section class="lab" id="labroot"></section></div>`; mountCanvas($('#labroot')); }
 
 // ---------- coin page (live) ----------
 async function coinPage(mint) {
@@ -374,7 +373,7 @@ async function standard() {
   ];
   const block = (n, t, rev = 'REV 2026-10') => `<div class="tb"><div><span>SHEET</span><b>${n}</b></div><div class="grow"><span>TITLE</span><b>${t}</b></div><div><span>STANDARD</span><b>SPL-16</b></div><div><span>REV</span><b>${rev.replace('REV ', '')}</b></div></div>`;
   app.innerHTML = `<div class="wrap std-wrap">
-  <aside class="std-nav"><span class="std">THE SPLINE STANDARD</span><b>SPL-16</b><p>A specification for hand-drawn bonding curves on Solana, implemented on Meteora's Dynamic Bonding Curve.</p><ol>${sheets.map(([n, t, id]) => `<li><a href="#${id}"><span>${n}</span>${t}</a></li>`).join('')}</ol><a class="btn pri wide" href="/">Draw a curve</a></aside>
+  <aside class="std-nav"><span class="std">THE SPLINE STANDARD</span><b>SPL-16</b><p>A specification for hand-drawn bonding curves on Solana, implemented on Meteora's Dynamic Bonding Curve.</p><ol>${sheets.map(([n, t, id]) => `<li><a href="#${id}"><span>${n}</span>${t}</a></li>`).join('')}</ol><a class="btn pri wide" href="/draw">Draw a curve</a></aside>
   <div class="std-body">
     <header class="std-hero"><span class="std">SPL-16 · DRAWING SET · 6 SHEETS</span><h1>The Spline Standard</h1><p>How a line drawn by hand becomes a market that can't be changed. Each sheet below covers one part of the system, with the numbers the launchpad actually uses.</p></header>
 
@@ -492,14 +491,19 @@ function lifeSvg() {
 }
 function notFound() { app.innerHTML = `<div class="wrap"><div class="card empty"><b>Nothing here.</b><a href="/">Back</a></div></div>`; }
 
+const CRUMB = { '/': 'Home', '/coins': 'Home', '/draw': 'Draw', '/lab': 'Draw', '/mine': 'Yours', '/standard': 'Standard' };
 async function render() {
   clearInterval(LIVE);
   await state(); const r = location.pathname;
-  document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.dataset.r === '/' ? r === '/' : r.startsWith(a.dataset.r)));
-  if (r === '/') home(); else if (r === '/coins') coins(); else if (r === '/lab') lab(); else if (r === '/mine') await mine(); else if (r === '/standard') await standard(); else if (r.startsWith('/c/')) await coinPage(r.slice(3)); else notFound();
+  document.querySelectorAll('.sb-nav a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === '/' ? (r === '/' || r === '/coins') : r.startsWith(a.dataset.r) || (a.dataset.r === '/draw' && r === '/lab')));
+  const cname = r.startsWith('/c/') ? (S.coins.find(c => c.mint === r.slice(3))?.ticker ? '$' + S.coins.find(c => c.mint === r.slice(3)).ticker : 'Coin') : (CRUMB[r] || '—');
+  $('#crumb').innerHTML = `<a href="/">SPL-16</a><span>/</span><b>${esc(cname)}</b>`;
+  document.title = r === '/' ? 'SPL-16' : `${cname} · SPL-16`;
+  if (r === '/' || r === '/coins') home(); else if (r === '/draw' || r === '/lab') drawPage(); else if (r === '/mine') await mine(); else if (r === '/standard') await standard(); else if (r.startsWith('/c/')) await coinPage(r.slice(3)); else notFound();
   if (window.lucide) lucide.createIcons();
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
+try { if (localStorage.getItem('annx')) $('#annbar').remove(); } catch {}
+$('#annx')?.addEventListener('click', () => { $('#annbar').remove(); try { localStorage.setItem('annx', 1); } catch {} });
 fetch('/swan.svg').then(r => r.text()).then(t => { const inner = t.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''); document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="swan" viewBox="0 0 1000 561">${inner}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 1000 561"><use href="#swan"/></svg>`; });
 render();
-setInterval(() => { const a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return; if (location.pathname === '/coins') render(); }, 30000);

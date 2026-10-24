@@ -114,7 +114,7 @@ async function loop() {
 if (!DRY) { setInterval(loop, 30_000); setTimeout(loop, 3_000); }
 
 // pages
-for (const p of ['/lab', '/c/:m', '/standard', '/coins', '/mine']) app.get(p, (req, res) => res.sendFile(path.join(ROOT, 'public', 'index.html')));
+for (const p of ['/lab', '/draw', '/c/:m', '/standard', '/coins', '/mine']) app.get(p, (req, res) => res.sendFile(path.join(ROOT, 'public', 'index.html')));
 
 const port = Number(process.env.PORT || 8792);
 app.listen(port, () => console.log(`spline on http://localhost:${port} · ${DRY ? 'DRY RUN' : 'live'} · rpc ${P.rpcState().using} · house ${process.env.HOUSE_WALLET ? 'set' : 'MISSING'}`));

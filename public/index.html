@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SPL-16 — draw the curve, launch the coin</title>
-<meta name="description" content="SPL-16, the Spline Standard. Hand-drawn bonding curves on Solana: draw up to 16 price points and launch a coin that trades on exactly that shape." />
+<title>SPL-16</title>
+<meta name="description" content="SPL-16, the Spline Standard. Draw the bonding curve your coin trades on. 16 points, one Meteora DBC config per coin." />
 <meta property="og:title" content="SPL-16 · the Spline Standard" />
-<meta property="og:description" content="Draw the curve. Launch the coin. A new standard for hand-drawn bonding curves on Solana." />
+<meta property="og:description" content="Draw the bonding curve your coin trades on." />
 <meta property="og:image" content="/og.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:site" content="@splsixteen" />
@@ -14,24 +14,31 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
 <link rel="apple-touch-icon" href="/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/app.css" />
 </head>
-<body>
-<header class="top">
-  <a class="wm" href="/"><span class="mark" id="mark"></span>SPL-16</a>
-  <nav class="nav"><a href="/" data-r="/"><i data-lucide="pen-tool"></i>Draw</a><a href="/coins" data-r="/coins"><i data-lucide="coins"></i>Coins</a><a href="/mine" data-r="/mine" id="minelink" style="display:none"><i data-lucide="user"></i>Yours</a><a href="/standard" data-r="/standard"><i data-lucide="file-badge"></i>Standard</a></nav>
-  <div class="r">
-    <span class="std">SPLINE STANDARD</span>
-    <a class="xl" id="xlink" href="https://x.com/splsixteen" target="_blank" rel="noreferrer">@splsixteen</a>
-    <button class="btn" id="wallet"><i data-lucide="wallet"></i><span>Connect</span></button>
+<body class="app">
+<div class="annbar" id="annbar"><i></i><b>New</b><span>Sniper tax is optional on every launch — 95% at open, 1% by minute ten. It can only go down.</span><button id="annx" aria-label="Dismiss">×</button></div>
+<div class="shell">
+  <aside class="sb">
+    <a class="sb-brand" href="/"><span class="mark" id="mark"></span><b>SPL-16</b></a>
+    <nav class="sb-nav">
+      <a href="/" data-r="/"><i data-lucide="house"></i>Home</a>
+      <a href="/draw" data-r="/draw"><i data-lucide="pen-tool"></i>Draw</a>
+      <a href="/mine" data-r="/mine"><i data-lucide="folder"></i>Yours</a>
+    </nav>
+    <span class="sb-h">Information</span>
+    <nav class="sb-nav">
+      <a href="/standard" data-r="/standard"><i data-lucide="book-open"></i>Standard</a>
+      <a href="https://x.com/splsixteen" target="_blank" rel="noreferrer" class="ext"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18.9 2H22l-6.8 7.8L23 22h-6.2l-4.8-6.3L6.4 22H3.3l7.3-8.3L1 2h6.3l4.4 5.8L18.9 2Zm-1.1 18h1.7L6.3 3.9H4.5L17.8 20Z"/></svg>splsixteen<span class="arr">↗</span></a>
+    </nav>
+    <div class="sb-foot">Built on Meteora DBC</div>
+  </aside>
+  <div class="main">
+    <header class="topbar"><div class="crumb" id="crumb"></div><div class="r"><button class="btn pri" id="wallet"><span>Connect wallet</span></button></div></header>
+    <main id="app"></main>
   </div>
-</header>
-<main id="app"></main>
-<footer class="foot">
-  <span>SPL-16 · the Spline Standard · built on Meteora DBC</span>
-  <span><a href="/standard">Standard</a><a href="https://x.com/splsixteen" target="_blank" rel="noreferrer">@splsixteen</a></span>
-</footer>
+</div>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/app.js"></script>
