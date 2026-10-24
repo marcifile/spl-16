@@ -18,7 +18,7 @@ function curvePath(points, W, H, pad) {
 }
 const glyph = (points, w = 40, h = 24) => `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><path d="${curvePath(points, w, h, 3).d}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const iconSvg = points => { const s = 200, { d, pts } = curvePath(points, s, s, 32), e = pts[pts.length - 1]; return `<svg viewBox="0 0 ${s} ${s}"><rect width="${s}" height="${s}" fill="#f4f2ec"/><path d="${d}" fill="none" stroke="#111114" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${e[0].toFixed(1)}" cy="${e[1].toFixed(1)}" r="5.6" fill="#f4f2ec"/></svg>`; };
-const coinIcon = c => c.logo ? `<img src="${esc(c.logo)}" alt="">` : iconSvg(c.points);
+const coinIcon = c => c.logo ? `<img src="${esc(c.logo)}" alt="">` : `<span class="mono-ic">${esc((c.ticker || '?')[0])}</span>`;
 // a spline weight ("duck"): lead body, brass prong that holds the strip at the point
 const DUCK = `<svg viewBox="0 0 44 30" class="duck-svg"><path d="M22 2 L22 9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M4 26 C4 15 13 9 23 9 C31 9 37 13 40 18 C41.5 21 40 26 36 26 Z" fill="currentColor"/><circle cx="22" cy="2.6" r="2.2" fill="currentColor"/></svg>`;
 // Meteora exponential fee scheduler, as configured: 95% → 1% in 60 steps over 600s
@@ -236,10 +236,10 @@ function plate(c, W = 290, H = 128) {
 function coinCard(c) {
   const pct = c.migrated ? 100 : Math.round((c.progress || 0) * 100);
   return `<a class="pc" href="/c/${c.mint}">
-    <div class="pc-p">${plate(c)}<span class="pc-shape">${esc(c.shape)}</span>${c.tax_start_bps && Date.now() - c.created_at < 600e3 ? '<span class="pc-tax">tax on</span>' : ''}</div>
-    <div class="pc-b"><div class="pc-id"><div class="lg">${coinIcon(c)}</div><div><b>${esc(c.name)}</b><span>$${esc(c.ticker)}</span></div></div>
-      <div class="pc-n"><b>${mcapOf(c).toFixed(1)}</b><span>SOL mcap</span></div></div>
-    <div class="pc-f"><span>${c.migrated ? 'graduated' : pct + '% to graduation'}</span><span>${c.trades ? c.trades + ' trades · ' : ''}${ago(c.created_at)}</span></div></a>`;
+    <div class="pc-id"><div class="lg">${coinIcon(c)}</div><div><b>${esc(c.name)}</b><span>$${esc(c.ticker)}</span></div><em>${ago(c.created_at)}</em></div>
+    <div class="pc-n"><b>${mcapOf(c).toFixed(1)}</b><span>SOL mcap</span>${c.tax_start_bps && Date.now() - c.created_at < 1200e3 ? '<i class="pc-tax">tax on</i>' : ''}</div>
+    <div class="pc-bar"><i style="width:${Math.max(pct, 1)}%"></i></div>
+    <div class="pc-f"><span>${c.migrated ? 'graduated' : pct + '% to graduation'}</span><span>${esc(c.shape)}${c.trades ? ' · ' + c.trades + ' trades' : ''}</span></div></a>`;
 }
 let SORT = 'mcap', SHAPE = '', QRY = '';
 function sketchPad() {
@@ -301,7 +301,7 @@ function home() {
   </section>
   <div class="bar5">
     <div class="tabs" id="sort">${[['mcap', 'Market cap'], ['recent', 'Newest'], ['volume', 'Volume'], ['progress', 'Closest to graduation']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
-    <div class="shp" id="shape"><button data-s="" class="${SHAPE ? '' : 'on'}">All</button>${shapes.map(k => `<button data-s="${k}" class="${SHAPE === k ? 'on' : ''}" title="${k}">${glyph(PRESETS[k], 26, 14)}</button>`).join('')}</div>
+    <label class="sel"><select id="shape"><option value="">All shapes</option>${shapes.map(k => `<option value="${k}" ${SHAPE === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
     <label class="search"><i data-lucide="search"></i><input id="q" placeholder="Name, ticker or mint" value="${esc(QRY)}"></label>
   </div>
   <div class="pgrid" id="cgrid"></div></div>`;
@@ -314,7 +314,7 @@ function home() {
   sketchPad();
   $('#q').oninput = e => { QRY = e.target.value; paint(); };
   $('#sort').onclick = e => { const k = e.target.closest('button')?.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
-  $('#shape').onclick = e => { const b = e.target.closest('button'); if (!b) return; SHAPE = b.dataset.s; document.querySelectorAll('#shape button').forEach(x => x.classList.toggle('on', x === b)); paint(); };
+  $('#shape').onchange = e => { SHAPE = e.target.value; paint(); };
   paint();
 }
 function drawPage() {
