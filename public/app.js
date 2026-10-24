@@ -42,7 +42,6 @@ function canvasHTML() {
   <div class="card lab-card">
     <div class="ch"><h2>Lines plan <span class="sub">market cap against supply sold</span></h2><div class="chr"><span class="rule warn" id="rule" style="display:none"></span><button class="btn sm" id="clear">Clear</button></div></div>
     <div class="stage"><div class="canvas board" id="cv">
-      <div class="grid-bg"></div>
       <div class="stations" id="stations"></div>
       <svg id="svg" viewBox="0 0 1000 560" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#111114" stop-opacity=".06"/><stop offset="1" stop-color="#111114" stop-opacity="0"/></linearGradient></defs>
         <g id="ticks"></g><path id="area" fill="url(#fill)"/><g id="ink"></g><path id="raw" fill="none"/><path id="strip" pathLength="1" fill="none" stroke="#e9dcc0" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/><path id="line" pathLength="1" fill="none" stroke="#111114" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><g id="fixes"></g></svg>
@@ -58,8 +57,8 @@ function canvasHTML() {
   </div>
   <div class="side">
     <div class="card step" id="s1"><div class="sec">
-      <div class="sh"><b>1</b><h3>Draw</h3><span class="shape-tag" id="k-shape">—</span></div>
-      <div class="shapes" id="shapes">${Object.keys(PRESETS).map(k => `<div class="shape" data-s="${k}" title="${k}">${glyph(PRESETS[k], 34, 20)}<i>${k}</i></div>`).join('')}</div>
+      <div class="sh"><b>1</b><h3>Draw</h3><span class="shape-tag" id="k-shape" title="what your curve reads as">—</span></div>
+      <div class="shapes" id="shapes"><div class="shape" data-s="custom" title="your own drawing"><svg viewBox="0 0 34 20" width="34" height="20"><path d="M4 16 C9 15 10 9 15 10 S22 13 24 7 29 3 30 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2.2 2.6"/></svg><i>custom</i></div>${Object.keys(PRESETS).map(k => `<div class="shape" data-s="${k}" title="${k}">${glyph(PRESETS[k], 34, 20)}<i>${k}</i></div>`).join('')}</div>
       <div class="kvs">
         <div class="kv"><span>SOL to graduate</span><b id="k-grad">—</b></div>
         <div class="kv"><span>First 10% of supply costs</span><b id="k-first">—</b></div>
@@ -70,7 +69,7 @@ function canvasHTML() {
       <div class="sh"><b>2</b><h3>Sniper tax</h3><label class="switch" id="taxsw"><i></i><span>off</span></label></div>
       <div class="body">
         <p class="note" style="margin-top:0">Optional. Buys pay 95% at open. Draw how fast it falls to 1% — your stroke is fitted to Meteora's fee scheduler, which can only go down.</p>
-        <div class="canvas tax" id="taxbar"><div class="grid-bg" style="background-size:10% 25%"></div><svg id="taxsvg" viewBox="0 0 400 100" preserveAspectRatio="none"><path id="taxarea" fill="#c8443a" fill-opacity=".08"/><path id="taxink" fill="none" stroke="#17171a" stroke-opacity=".35" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/><path id="taxline" fill="none" stroke="#c8443a" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><span class="axis" style="left:8px;top:6px">95%</span><span class="axis" style="left:8px;bottom:6px">1%</span><span class="axis" style="right:8px;bottom:6px">20 min</span><span class="axis" style="left:50%;bottom:6px;transform:translateX(-50%)">10 min</span><div class="taxhint" id="taxhint">draw the decay</div></div>
+        <div class="canvas tax" id="taxbar"><svg id="taxsvg" viewBox="0 0 400 100" preserveAspectRatio="none">${[50, 25, 10].map(f => `<line x1="0" x2="400" y1="${(95 - f) / 94 * 100}" y2="${(95 - f) / 94 * 100}" stroke="#2f4a6d" stroke-opacity=".1" vector-effect="non-scaling-stroke"/>`).join('')}${[2, 4, 6, 8, 10, 12, 14, 16, 18].map(m => `<line x1="${m / 20 * 400}" x2="${m / 20 * 400}" y1="0" y2="100" stroke="#2f4a6d" stroke-opacity="${m % 10 ? .06 : .14}" vector-effect="non-scaling-stroke"/>`).join('')}<path id="taxarea" fill="#c8443a" fill-opacity=".08"/><path id="taxink" fill="none" stroke="#17171a" stroke-opacity=".35" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/><path id="taxline" fill="none" stroke="#c8443a" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><span class="axis" style="left:8px;top:6px">95%</span><span class="axis" style="left:8px;bottom:6px">1%</span><span class="axis" style="left:8px;top:${(95 - 50) / 94 * 100}%;transform:translateY(-50%)">50%</span><span class="axis" style="right:8px;bottom:6px">20 min</span><span class="axis" style="left:50%;bottom:6px;transform:translateX(-50%)">10 min</span><div class="taxhint" id="taxhint">draw the decay</div></div>
         <div class="kv"><span>Fitted schedule</span><b id="k-fit">exponential · 10m</b></div>
         <div class="kv"><span>At 1 min · 3 min · 5 min</span><b id="k-tax">—</b></div>
       </div></div></div>
@@ -82,6 +81,8 @@ function canvasHTML() {
         <div class="field"><label>Logo <span class="opt">optional · square · under 2 MB</span></label>
           <div class="logo-row"><div class="ic" id="pv"></div><div><input type="file" id="logo" accept="image/png,image/jpeg,image/webp,image/gif" hidden><button class="btn sm" id="logobtn" type="button">Upload image</button><button class="btn sm ghost" id="logoclr" type="button" style="display:none">Use curve</button><p class="note" style="margin-top:6px">Without a logo, the curve is the icon.</p></div></div>
         </div>
+        <div class="field"><label>X <span class="opt">optional · handle or link</span></label><input id="tw" placeholder="@yourcoin" maxlength="80"></div>
+        <p class="note" style="margin-top:6px">The coin's website is set to its page on spl-16.com.</p>
         <div class="field"><label>Your first buy <span class="opt">SOL · optional</span></label><input id="fb" type="number" min="0" step="0.05" placeholder="0"></div>
       </div></div></div>
     <div class="card step locked" id="s4"><div class="sec">
@@ -99,12 +100,13 @@ function mountCanvas(root, { compact = false } = {}) {
   const W = 1000, H = 560, PAD = 36; const cv = $('#cv'); let raw = [], pts = null, fixed = [], drawing = false, toastT = null, quoteT = null, taxOn = false, logoData = null, lastQ = null;
   const toSvg = e => { const r = cv.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: (t.clientX - r.left) / r.width * W, y: (t.clientY - r.top) / r.height * H }; };
   const price = p => (H - PAD - p.y) / (H - 2 * PAD);
-  const stepOn = (n, on) => $(`#s${n}`).classList.toggle('locked', !on);
+  let reached = 1; const stepOn = (n, on) => { if (on) reached = Math.max(reached, n); $(`#s${n}`).classList.toggle('locked', !on && n > reached); };
+  let picked = null; const pick = k => { picked = k; document.querySelectorAll('.shape').forEach(s => s.classList.toggle('on', s.dataset.s === k)); };
   const lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
   $('#ylab').innerHTML = [1, .75, .5, .25, 0].map(v => `<span style="top:${(PAD + (H - 2 * PAD) * (1 - v)) / H * 100}%">${Math.round(lo + (hi - lo) * v)}</span>`).join('') + `<span class="axt">SOL</span>`;
-  $('#xlab').innerHTML = [0, 25, 50, 75, 100].map(v => `<span style="left:${(PAD + (W - 2 * PAD) * v / 100) / W * 100}%">${v}%</span>`).join('');
+  $('#xlab').innerHTML = [0, 20, 40, 60, 80, 100].map(v => `<span style="left:${(PAD + (W - 2 * PAD) * v / 100) / W * 100}%">${v}%</span>`).join('');
   $('#stations').innerHTML = Array.from({ length: N }, (_, i) => `<span style="left:${(PAD + (W - 2 * PAD) * i / (N - 1)) / W * 100}%">${i + 1}</span>`).join('');
-  $('#ticks').innerHTML = Array.from({ length: N }, (_, i) => { const x = PAD + (W - 2 * PAD) * i / (N - 1); return `<line x1="${x}" x2="${x}" y1="${PAD - 10}" y2="${H - PAD}" stroke="#2f4a6d" stroke-opacity=".10" stroke-dasharray="2 5" vector-effect="non-scaling-stroke"/>`; }).join('') + `<line x1="${PAD}" x2="${W - PAD}" y1="${H - PAD}" y2="${H - PAD}" stroke="#2f4a6d" stroke-opacity=".35" vector-effect="non-scaling-stroke"/>`;
+  $('#ticks').innerHTML = [.25, .5, .75, 1].map(v => { const y = H - PAD - (H - 2 * PAD) * v; return `<line x1="${PAD}" x2="${W - PAD}" y1="${y}" y2="${y}" stroke="#2f4a6d" stroke-opacity=".09" vector-effect="non-scaling-stroke"/>`; }).join('') + Array.from({ length: N }, (_, i) => { const x = PAD + (W - 2 * PAD) * i / (N - 1), major = i % 3 === 0; return `<line x1="${x}" x2="${x}" y1="${PAD - 10}" y2="${H - PAD}" stroke="#2f4a6d" stroke-opacity="${major ? .16 : .08}" ${major ? '' : 'stroke-dasharray="2 5"'} vector-effect="non-scaling-stroke"/>`; }).join('') + `<line x1="${PAD}" x2="${W - PAD}" y1="${H - PAD}" y2="${H - PAD}" stroke="#2f4a6d" stroke-opacity=".35" vector-effect="non-scaling-stroke"/>`;
   function snap(samples) { const xs = [], ys = [], fx = []; for (let i = 0; i < N; i++) { const x = PAD + (W - 2 * PAD) * i / (N - 1); xs.push(x); let best = null, bd = 1e9; for (const p of samples) { const d = Math.abs(p.x - x); if (d < bd) { bd = d; best = p; } } ys.push(best ? best.y : H - PAD); } for (let i = 1; i < N; i++) { if (ys[i] > ys[i - 1] + .5) fx.push(i); ys[i] = Math.min(ys[i], ys[i - 1]); } for (let i = 0; i < N; i++) ys[i] = Math.max(PAD, Math.min(H - PAD, ys[i])); if (ys[N - 1] >= ys[0] - 8) ys[N - 1] = Math.max(PAD, ys[0] - 60); fixed = fx; return xs.map((x, i) => ({ x, y: ys[i] })); }
   function fromPoints(P) { raw = []; fixed = []; pts = P.map((v, i) => ({ x: PAD + (W - 2 * PAD) * i / (N - 1), y: H - PAD - (H - 2 * PAD) * v })); render(true); }
   function set(id, v) { const el = $(id); if (!el) return; if (el.textContent !== v) { el.textContent = v; el.classList.add('hot'); setTimeout(() => el.classList.remove('hot'), 250); } }
@@ -112,7 +114,7 @@ function mountCanvas(root, { compact = false } = {}) {
   function render(final) {
     $('#ghost').classList.toggle('off', !!(pts || raw.length));
     const rule = $('#rule');
-    if (!pts) { ['#line', '#area', '#strip'].forEach(i => $(i).setAttribute('d', '')); $('#ducks').innerHTML = ''; $('#fixes').innerHTML = ''; $('#anns').innerHTML = ''; $('#hint').classList.remove('off'); rule.style.display = 'none'; ['#k-grad', '#k-first', '#k-buy', '#k-mcap', '#k-shape'].forEach(k => ($(k).textContent = '—')); document.querySelectorAll('.shape').forEach(s => s.classList.remove('on')); stepOn(2, false); stepOn(3, false); stepOn(4, false); paintPreview(); return; }
+    if (!pts) { ['#line', '#area', '#strip'].forEach(i => $(i).setAttribute('d', '')); $('#ducks').innerHTML = ''; $('#fixes').innerHTML = ''; $('#anns').innerHTML = ''; $('#hint').classList.remove('off'); rule.style.display = 'none'; ['#k-grad', '#k-first', '#k-buy', '#k-mcap', '#k-shape'].forEach(k => ($(k).textContent = '—')); if (!drawing) pick(null); stepOn(2, false); stepOn(3, false); stepOn(4, false); paintPreview(); return; }
     $('#hint').classList.add('off');
     const { d } = curvePath(pts.map(price), W, H, 0); // smooth spline through the ducks
     const sm = 'M' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
@@ -133,7 +135,6 @@ function mountCanvas(root, { compact = false } = {}) {
     const r = await fetch('/api/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ points: P, taxStartBps: taxOn ? 9500 : 0, tax: TAX }) }); const q = await r.json();
     if (q.error) { $('#err').textContent = q.error; return; } lastQ = q; $('#err').textContent = '';
     set('#k-grad', sol(q.toGraduateSol, 1)); set('#k-first', sol(q.first10Sol, 2)); set('#k-buy', q.oneSolBuysPct + '% of supply'); set('#k-mcap', `${q.startMcapSol} → ${q.gradMcapSol} SOL`); set('#k-shape', q.shape);
-    document.querySelectorAll('.shape').forEach(s => s.classList.toggle('on', s.dataset.s === q.shape)); // detected, not selected
     if (final) stepOn(2, true);
     updateLaunch();
   }
@@ -144,13 +145,13 @@ function mountCanvas(root, { compact = false } = {}) {
   const inkSeg = (a, b, w) => ink.insertAdjacentHTML('beforeend', `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke-width="${w.toFixed(2)}"/>`);
   const start = e => { if (e.button && e.button !== 0) return; drawing = true; ink.innerHTML = ''; ink.classList.remove('fade'); cv.classList.remove('settle'); raw = [toSvg(e)]; lastT = performance.now(); inkW = 4; pts = null; render(); e.preventDefault(); };
   const move = e => { if (!drawing) return; const p = toSvg(e); const q = raw[raw.length - 1]; if (p.x >= q.x) { const t = performance.now(), v = Math.hypot(p.x - q.x, p.y - q.y) / Math.max(1, t - lastT); lastT = t; inkW = inkW * .7 + Math.max(1.3, Math.min(5.5, 5.8 - v * 2.2)) * .3; inkSeg(q, p, inkW); raw.push(p); } $('#ghost').classList.add('off'); $('#hint').classList.add('off'); e.preventDefault(); };
-  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) { pts = snap(raw); cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); ink.classList.add('fade'); } raw = []; render(true); };
+  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) { pts = snap(raw); cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); ink.classList.add('fade'); pick('custom'); } raw = []; render(true); };
   const nib = $('#nib');
   cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); nib.style.transform = `translate(${e.clientX - r.left}px,${e.clientY - r.top - 22}px)`; nib.classList.add('on'); nib.classList.toggle('down', drawing); });
   cv.addEventListener('mouseleave', () => nib.classList.remove('on'));
   cv.addEventListener('mousedown', start); window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
   cv.addEventListener('touchstart', start, { passive: false }); window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end);
-  document.querySelectorAll('.shape').forEach(s => (s.onclick = () => { ink.innerHTML = ''; cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); fromPoints(PRESETS[s.dataset.s]); }));
+  document.querySelectorAll('.shape').forEach(s => (s.onclick = () => { if (s.dataset.s === 'custom') { if (!pts) $('#hint').classList.add('nudge'), setTimeout(() => $('#hint').classList.remove('nudge'), 900); else pick('custom'); return; } ink.innerHTML = ''; cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); fromPoints(PRESETS[s.dataset.s]); pick(s.dataset.s); }));
   $('#clear').onclick = () => { pts = null; raw = []; fixed = []; lastQ = null; ink.innerHTML = ''; render(); };
   $('#s2').addEventListener('click', () => { if (!$('#s2').classList.contains('locked')) stepOn(3, true); });
   ['#nm', '#tk'].forEach(id => $(id).addEventListener('input', () => { stepOn(4, true); updateLaunch(); }));
@@ -168,7 +169,7 @@ function mountCanvas(root, { compact = false } = {}) {
   function fitTax() {
     // samples: t in seconds, f in fee %, forced non-increasing from 95
     const S2 = traw.map(p => ({ t: p.x / 400 * TAXMAX, f: 95 - p.y / 100 * 94 })); let m = 95; S2.forEach(q => { m = Math.min(m, q.f); q.f = m; });
-    const hit = S2.find(q => q.f <= 2.5); const sec = Math.max(60, Math.min(TAXMAX, Math.round((hit ? hit.t : S2[S2.length - 1].t) / 30) * 30));
+    const floor = S2[S2.length - 1].f; const hit = S2.find(q => q.f <= Math.max(2.5, floor + 3)); const sec = Math.max(60, Math.min(TAXMAX, Math.round((hit ? hit.t : S2[S2.length - 1].t) / 30) * 30));
     const err = mode => S2.filter(q => q.t <= sec).reduce((a, q) => a + (q.f - taxAt(q.t, { mode, seconds: sec })) ** 2, 0);
     TAX = { mode: err('linear') < err('exp') ? 'linear' : 'exp', seconds: sec }; paintTax();
   }
@@ -180,7 +181,7 @@ function mountCanvas(root, { compact = false } = {}) {
   tb.addEventListener('touchstart', tdown, { passive: false }); window.addEventListener('touchmove', tmove, { passive: false }); window.addEventListener('touchend', tup);
   tb.addEventListener('mousedown', () => $('#taxink').classList.remove('fade'));
   paintTax();
-  $('#taxsw').onclick = e => { e.stopPropagation(); if ($('#s2').classList.contains('locked')) return; taxOn = !taxOn; $('#taxsw').classList.toggle('on', taxOn); $('#taxsw').querySelector('span').textContent = taxOn ? 'on' : 'off'; $('#s2').classList.toggle('tax-on', taxOn); stepOn(3, true); if (pts) quote(pts.map(price), false); };
+  $('#taxsw').onclick = e => { e.stopPropagation(); if ($('#s2').classList.contains('locked')) return; taxOn = !taxOn; if (!taxOn) { TAX = { mode: 'exp', seconds: 600 }; traw = []; $('#taxink').setAttribute('d', ''); $('#taxhint').classList.remove('off'); paintTax(); } $('#taxsw').classList.toggle('on', taxOn); $('#taxsw').querySelector('span').textContent = taxOn ? 'on' : 'off'; $('#s2').classList.toggle('tax-on', taxOn); stepOn(3, true); if (pts) quote(pts.map(price), false); };
   // logo
   $('#logobtn').onclick = () => $('#logo').click();
   $('#logo').onchange = () => { const f = $('#logo').files[0]; if (!f) return; if (f.size > 2_000_000) return ($('#err').textContent = 'logo must be under 2 MB'); const rd = new FileReader(); rd.onload = () => { logoData = rd.result; paintPreview(); $('#logoclr').style.display = ''; }; rd.readAsDataURL(f); };
@@ -189,7 +190,7 @@ function mountCanvas(root, { compact = false } = {}) {
   $('#launch').onclick = async () => {
     const err = $('#err'); err.textContent = '';
     if (!wallet && !(await connect())) return; updateLaunch(); if ($('#launch').disabled) return;
-    const body = { creator: wallet, name: $('#nm').value, ticker: $('#tk').value, description: $('#ds').value, points: pts.map(price), taxStartBps: taxOn ? 9500 : 0, tax: TAX, firstBuySol: Number($('#fb').value) || 0, logo: logoData };
+    const body = { creator: wallet, twitter: $('#tw').value, name: $('#nm').value, ticker: $('#tk').value, description: $('#ds').value, points: pts.map(price), taxStartBps: taxOn ? 9500 : 0, tax: TAX, firstBuySol: Number($('#fb').value) || 0, logo: logoData };
     const b = $('#launch'); b.disabled = true; b.textContent = 'Preparing…';
     try {
       const r = await fetch('/api/launch/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json();
@@ -278,8 +279,7 @@ function scrub(el, c, W, H) {
   el.addEventListener('mouseleave', () => sc.classList.remove('on'));
 }
 function home() {
-  const T = S.totals; const by = k => [...S.coins].sort((a, b) => (b[k] || 0) - (a[k] || 0));
-  const spot = by('volume_sol')[0]?.volume_sol ? by('volume_sol')[0] : S.coins[0];
+  const T = S.totals;
   const shapes = Object.keys(PRESETS);
   const num = (v, k) => `<div><b>${v}</b><span>${k}</span></div>`;
   app.innerHTML = `<div class="page">
@@ -288,10 +288,17 @@ function home() {
     <div class="nums">${num(T.coins, 'drawn')}${num(Number(T.volume || 0).toFixed(1), 'SOL traded')}${num(T.trades || 0, 'trades')}${num(T.graduated, 'graduated')}</div>
   </section>
   <section class="spot">
-    ${spot ? `<a class="spot-l" href="/c/${spot.mint}">
-      <div class="spot-h"><div class="lg">${coinIcon(spot)}</div><div><span class="eyebrow">${spot.volume_sol ? 'Most traded' : 'Newest'}</span><b>${esc(spot.name)} <span>$${esc(spot.ticker)}</span></b></div>
-        <div class="spot-n"><b>${mcapOf(spot).toFixed(1)} SOL</b><span>${((spot.sold_pct || 0) * 100).toFixed(1)}% of curve sold · ${Number(spot.volume_sol || 0).toFixed(2)} SOL volume</span></div></div>
-      <div class="spot-c">${plate(spot, 840, 200)}</div></a>` : '<div class="spot-l empty"><b>No curves yet.</b>The first one drawn shows up here.</div>'}
+    <div class="how5">
+      <span class="eyebrow">How SPL-16 works</span>
+      <h2>A launchpad where the creator sets the price curve.</h2>
+      <ol>
+        <li><b>Draw</b><p>Sketch left to right. Your line is held at 16 points — the price at 0%, 6.7%, 13.3% … 100% of the supply sold.</p></li>
+        <li><b>Tax, if you want one</b><p>Buys can pay up to 95% at open, falling to 1% on a schedule you draw. It can only go down.</p></li>
+        <li><b>Launch</b><p>One signature creates the coin's own Meteora DBC config and pool. Nobody can edit the curve after — including us.</p></li>
+        <li><b>Graduate</b><p>Every buy walks up your curve. At its SOL threshold the pool moves to Meteora DAMM v2, liquidity locked for good.</p></li>
+      </ol>
+      <div class="facts5"><span>1B supply · SPL token</span><span>1% fee · half to the creator</span><span>Mint revoked</span><a href="/standard">Read the standard →</a></div>
+    </div>
     <div class="pad">
       <div class="pad-h"><span class="eyebrow">Sketch a curve</span><span class="pad-n" id="padn">16 points</span></div>
       <div class="pad-c" id="pad"><svg viewBox="0 0 300 190" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">draw here</span></div>
@@ -310,7 +317,6 @@ function home() {
     xs.sort(SORT === 'recent' ? (a, b) => b.created_at - a.created_at : SORT === 'volume' ? (a, b) => (b.volume_sol || 0) - (a.volume_sol || 0) : SORT === 'progress' ? (a, b) => (b.progress || 0) - (a.progress || 0) : (a, b) => mcapOf(b) - mcapOf(a));
     $('#cgrid').innerHTML = xs.length ? xs.map(coinCard).join('') : `<div class="card empty" style="grid-column:1/-1"><b>${S.coins.length ? 'Nothing matches.' : 'No coins yet.'}</b><a href="/draw">Draw one →</a></div>`;
   };
-  if (spot) scrub($('.spot-c'), spot, 840, 200);
   sketchPad();
   $('#q').oninput = e => { QRY = e.target.value; paint(); };
   $('#sort').onclick = e => { const k = e.target.closest('button')?.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
@@ -357,6 +363,46 @@ async function mine() {
 }
 
 // ---------- coin page (live) ----------
+function tradeHTML(c, real) {
+  if (c.migrated) return `<div class="card trade"><div class="sec"><h3>Trade</h3><p class="note" style="margin:0 0 12px">This coin has graduated to Meteora DAMM v2.</p><a class="btn pri wide" href="https://jup.ag/tokens/${c.mint}" target="_blank" rel="noreferrer">Trade on Jupiter</a></div></div>`;
+  return `<div class="card trade"><div class="sec">
+    <div class="tr-tabs" id="trtabs"><button data-s="buy" class="on">Buy</button><button data-s="sell">Sell</button></div>
+    <div class="tr-bal" id="trbal">${wallet ? 'Loading balance…' : 'Connect a wallet to trade'}</div>
+    <div class="tr-in"><input id="tramt" type="number" min="0" step="any" placeholder="0.0" inputmode="decimal"><span id="trunit">SOL</span></div>
+    <div class="tr-q" id="trq"></div>
+    <button class="btn pri wide big" id="trgo" ${real ? '' : 'disabled'}>${real ? (wallet ? 'Buy' : 'Connect wallet') : 'Trading off in dry run'}</button>
+    <div class="err" id="trerr"></div><div class="note" id="trok"></div></div></div>`;
+}
+function mountTrade(c, real, after) {
+  if (!$('#trtabs')) return; let side = 'buy', bal = { sol: 0, tokens: 0 };
+  const paint = () => {
+    $('#trunit').textContent = side === 'buy' ? 'SOL' : '$' + c.ticker;
+    $('#trq').innerHTML = side === 'buy' ? [0.1, 0.5, 1].map(v => `<button data-v="${v}">${v} SOL</button>`).join('') : [25, 50, 100].map(v => `<button data-p="${v}">${v}%</button>`).join('');
+    $('#trbal').innerHTML = !wallet ? 'Connect a wallet to trade' : `You hold <b>${big(bal.tokens)} $${esc(c.ticker)}</b> · ${bal.sol.toFixed(3)} SOL`;
+    if (real) $('#trgo').textContent = !wallet ? 'Connect wallet' : side === 'buy' ? `Buy $${c.ticker}` : `Sell $${c.ticker}`;
+    $('#trgo').classList.toggle('sell', side === 'sell');
+  };
+  const load = async () => { if (!wallet) return paint(); try { bal = await (await fetch(`/api/balance/${c.mint}/${wallet}`)).json(); } catch {} paint(); };
+  $('#trtabs').onclick = e => { const s2 = e.target.dataset.s; if (!s2) return; side = s2; document.querySelectorAll('#trtabs button').forEach(b => b.classList.toggle('on', b.dataset.s === s2)); $('#tramt').value = ''; $('#trerr').textContent = ''; paint(); };
+  $('#trq').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('#tramt').value = b.dataset.v || +(bal.tokens * b.dataset.p / 100).toFixed(6); };
+  $('#trgo').onclick = async () => {
+    $('#trerr').textContent = ''; $('#trok').textContent = '';
+    if (!wallet) { if (await connect()) load(); return; }
+    const amount = Number($('#tramt').value); if (!(amount > 0)) return ($('#trerr').textContent = 'enter an amount');
+    if (side === 'sell' && amount > bal.tokens + 1e-9) return ($('#trerr').textContent = `you hold ${big(bal.tokens)}`);
+    const b = $('#trgo'); b.disabled = true; b.textContent = 'Preparing…';
+    try {
+      const r = await fetch('/api/swap', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mint: c.mint, wallet, side, amount }) }); const j = await r.json(); if (!r.ok) throw new Error(j.error);
+      b.textContent = 'Sign in your wallet…';
+      const tx = window.solanaWeb3.Transaction.from(Uint8Array.from(atob(j.tx), ch => ch.charCodeAt(0)));
+      const res = await provider().signAndSendTransaction(tx);
+      $('#trok').innerHTML = `${side === 'buy' ? 'Bought' : 'Sold'} ~${side === 'buy' ? big(j.out) + ' $' + esc(c.ticker) : j.out.toFixed(4) + ' SOL'} · <a href="https://solscan.io/tx/${res.signature}" target="_blank" rel="noreferrer">view tx ↗</a>`;
+      $('#tramt').value = ''; setTimeout(() => { load(); after(); }, 2500); setTimeout(load, 8000);
+    } catch (e) { $('#trerr').textContent = e.message || String(e); }
+    b.disabled = false; paint();
+  };
+  load();
+}
 async function coinPage(mint) {
   const j = await (await fetch(`/api/coin/${mint}`)).json(); if (j.error) return notFound();
   const c = j.coin; const real = c.pool && c.pool !== 'dry'; const isNew = new URLSearchParams(location.search).get('new');
@@ -366,7 +412,7 @@ async function coinPage(mint) {
     <div><h1>${esc(c.name)} <span class="tk">$${esc(c.ticker)}</span></h1>
       <div class="meta"><span class="g">${glyph(c.points, 40, 20)}</span><span>${esc(c.shape)} curve</span><span>·</span><span>by <a href="https://solscan.io/account/${c.creator}" target="_blank" rel="noreferrer">${short(c.creator)}</a></span><span>·</span><span>${ago(c.created_at)} ago</span>${c.migrated ? '<span class="tag good">graduated</span>' : '<span class="tag">on the curve</span>'}${c.tax_start_bps ? '<span class="tag">sniper tax</span>' : ''}</div>
       ${c.description ? `<p>${esc(c.description)}</p>` : ''}</div>
-    <div class="acts">${real ? `<a class="btn pri" href="https://jup.ag/tokens/${c.mint}" target="_blank" rel="noreferrer">Buy on Jupiter</a><a class="btn" href="https://www.meteora.ag/dbc/${c.pool}" target="_blank" rel="noreferrer">Meteora</a><a class="btn" href="https://dexscreener.com/solana/${c.pool}" target="_blank" rel="noreferrer">Dexscreener</a>` : '<span class="tag">dry run</span>'}<button class="btn" id="cpy">CA ${short(c.mint)}</button></div></div>
+    <div class="acts">${real ? `<a class="btn pri" href="https://jup.ag/tokens/${c.mint}" target="_blank" rel="noreferrer">Buy on Jupiter</a><a class="btn" href="https://www.meteora.ag/dbc/${c.pool}" target="_blank" rel="noreferrer">Meteora</a><a class="btn" href="https://dexscreener.com/solana/${c.pool}" target="_blank" rel="noreferrer">Dexscreener</a>` : '<span class="tag">dry run</span>'}${c.twitter ? `<a class="btn" href="${esc(c.twitter)}" target="_blank" rel="noreferrer">X ↗</a>` : ''}<button class="btn" id="cpy">CA ${short(c.mint)}</button></div></div>
   <div class="two">
     <div>
       <div class="card"><div class="ch"><h2>On the curve <span class="sub" id="pos">—</span></h2><span class="livetag" id="lt"><i></i>live</span></div><div class="chartbox" id="chart"></div></div>
@@ -374,7 +420,8 @@ async function coinPage(mint) {
       <div class="card" style="margin-top:20px"><div class="ch"><h2>Trades <span class="sub" id="tcount"></span></h2></div><div id="trades"></div></div>
     </div>
     <aside>
-      <div class="card"><div class="sec" id="stats"></div></div>
+      ${tradeHTML(c, real)}
+      <div class="card" style="margin-top:20px"><div class="sec" id="stats"></div></div>
       <div class="card" style="margin-top:20px"><div class="ch"><h2>The curve <span class="sub">as drawn</span></h2><span class="rule"><i></i>immutable</span></div>
         <div class="spec2 one"><div><span>to graduate</span><b>${sol(c.to_graduate_sol, 1)}</b></div><div><span>launch → graduation mcap</span><b>${c.start_mcap_sol} → ${c.grad_mcap_sol} SOL</b></div><div><span>sniper tax</span><b>${c.tax_start_bps ? (() => { const t = c.tax_json ? JSON.parse(c.tax_json) : { mode: 'exp', seconds: 600 }; return `95% → 1% · ${t.mode === 'linear' ? 'linear' : 'exponential'} · ${mmss(t.seconds)}`; })() : 'none'}</b></div><div><span>config</span><b>${real ? `<a href="https://solscan.io/account/${c.config}" target="_blank" rel="noreferrer">${short(c.config)}</a>` : '—'}</b></div></div>
         ${c.logo ? `<div class="sec" style="border-top:1px solid var(--line);display:flex;gap:14px;align-items:center"><div class="ic sm">${iconSvg(c.points)}</div><div class="note" style="margin:0">The drawing, as an icon. It's also stored in the token metadata.</div></div>` : ''}</div>
@@ -384,7 +431,9 @@ async function coinPage(mint) {
   $('#cpy').onclick = () => { navigator.clipboard.writeText(c.mint); $('#cpy').textContent = 'copied'; };
   const sh = $('#share'); if (sh) sh.onclick = () => { navigator.clipboard.writeText(`${location.origin}/c/${c.mint}`); sh.textContent = 'copied'; };
   paintLive({ coin: c, hist: j.hist || [], trades: j.trades || [] });
-  const tick = async () => { if (!location.pathname.endsWith(mint)) return; try { const r = await fetch(`/api/coin/${mint}/live`); if (r.ok) paintLive(await r.json()); } catch {} };
+  mountTrade(c, real, () => tick());
+  async function tick() { return tick0(); }
+  const tick0 = async () => { if (!location.pathname.endsWith(mint)) return; try { const r = await fetch(`/api/coin/${mint}/live`); if (r.ok) paintLive(await r.json()); } catch {} };
   clearInterval(LIVE); LIVE = setInterval(tick, 8000); tick();
 }
 function paintLive({ coin: c, hist, trades }) {
@@ -415,7 +464,7 @@ function chartSvg(c, hist) {
   const sold = c.sold_pct || 0, mc = mcapOf(c); const lx = X(sold), ly = Y(mc);
   const trail = hist.filter(h => h[3] != null).map(h => [X(h[3]), Y(h[2] * 1e9)]);
   const ylabs = [0, .25, .5, .75, 1].map(v => `<text x="${pad - 8}" y="${(H - padB - (H - padB - top) * v).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-family="JetBrains Mono" font-size="10" fill="#9a9aa2">${Math.round(lo + (hi - lo) * v)}</text><line x1="${pad}" x2="${W - pad}" y1="${(H - padB - (H - padB - top) * v).toFixed(1)}" y2="${(H - padB - (H - padB - top) * v).toFixed(1)}" stroke="#ecebe5"/>`).join('');
-  const xlabs = [0, 25, 50, 75, 100].map(v => `<text x="${X(v / 100).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#9a9aa2">${v}%</text>`).join('');
+  const xlabs = [0, 20, 40, 60, 80, 100].map(v => `<text x="${X(v / 100).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#9a9aa2">${v}%</text>`).join('');
   const ducks = curve.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="#111114"/>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}"><defs><linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#111114" stop-opacity=".07"/><stop offset="1" stop-color="#111114" stop-opacity="0"/></linearGradient></defs>
     ${ylabs}${xlabs}
@@ -582,5 +631,5 @@ async function render() {
   if (window.lucide) lucide.createIcons();
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
-{ const inner = '<circle cx="14" cy="14" r="3.6" class="d"/><circle cx="38" cy="14" r="3.6" class="d"/><circle cx="62" cy="14" r="3.6" class="d"/><circle cx="14" cy="38" r="3.6" class="d"/><circle cx="38" cy="38" r="3.6" class="d"/><circle cx="62" cy="38" r="3.6" class="d"/><circle cx="86" cy="38" r="3.6" class="d"/><circle cx="14" cy="62" r="3.6" class="d"/><circle cx="38" cy="62" r="3.6" class="d"/><circle cx="62" cy="62" r="3.6" class="d"/><circle cx="86" cy="62" r="3.6" class="d"/><circle cx="38" cy="86" r="3.6" class="d"/><circle cx="62" cy="86" r="3.6" class="d"/><circle cx="86" cy="86" r="3.6" class="d"/><path class="s" d="M14,86 C46,86 60,80 69,62 C77,46 80,30 86,14" fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="round" pathLength="1"/><circle class="e" cx="14" cy="86" r="6.5"/><circle class="e e2" cx="86" cy="14" r="6.5"/>'; document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="m16" viewBox="0 0 100 100">${inner.replace(/ pathLength="1"/, '')}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 100 100">${inner}</svg>`; const m2 = $('#mark2'); if (m2) m2.innerHTML = `<svg viewBox="0 0 100 100"><use href="#m16"/></svg>`; const b = $('.nb-brand'); const ink = () => { b.classList.remove('ink'); void b.offsetWidth; b.classList.add('ink'); }; ink(); b.addEventListener('mouseenter', ink); }
+{ const inner = '<path class="s" d="M19.90,83.50 L21.14,83.63 L22.37,83.74 L23.57,83.83 L24.74,83.89 L25.87,83.93 L26.98,83.94 L28.07,83.92 L29.12,83.87 L30.16,83.79 L31.16,83.69 L32.15,83.56 L33.11,83.40 L34.05,83.20 L34.96,82.98 L35.86,82.73 L36.73,82.45 L37.59,82.14 L38.42,81.80 L39.23,81.43 L40.01,81.03 L40.78,80.60 L41.52,80.14 L42.24,79.66 L42.93,79.14 L43.61,78.60 L44.26,78.04 L44.88,77.45 L45.48,76.84 L46.06,76.21 L46.61,75.56 L47.14,74.89 L47.65,74.20 L48.13,73.50 L48.59,72.78 L49.03,72.05 L49.45,71.31 L49.85,70.55 L50.23,69.78 L50.59,69.00 L50.93,68.21 L51.26,67.42 L51.57,66.61 L51.86,65.80 L52.14,64.99 L52.41,64.17 L52.66,63.34 L52.90,62.51 L53.13,61.67 L53.34,60.83 L53.55,59.99 L53.75,59.15 L53.93,58.30 L54.11,57.46 L54.28,56.61 L54.45,55.77 L54.60,54.92 L54.76,54.08 L54.90,53.24 L55.05,52.40 L55.18,51.56 L55.32,50.73 L55.45,49.90 L55.58,49.07 L55.71,48.25 L55.84,47.43 L55.97,46.62 L56.10,45.82 L56.23,45.02 L56.37,44.23 L56.50,43.45 L56.64,42.67 L56.78,41.91 L56.93,41.15 L57.08,40.40 L57.23,39.66 L57.39,38.93 L57.56,38.21 L57.73,37.50 L57.91,36.81 L58.10,36.12 L58.30,35.44 L58.50,34.78 L58.72,34.13 L58.94,33.49 L59.17,32.86 L59.42,32.25 L59.68,31.64 L59.95,31.05 L60.23,30.47 L60.53,29.90 L60.84,29.34 L61.17,28.80 L61.52,28.26 L61.88,27.74 L62.26,27.22 L62.67,26.72 L63.09,26.23 L63.55,25.75 L64.02,25.28 L64.52,24.82 L65.05,24.38 L65.61,23.95 L66.21,23.53 L66.83,23.12 L67.49,22.73 L68.18,22.36 L68.91,22.00 L69.67,21.66 L70.48,21.35 L71.32,21.05 L72.20,20.77 L73.12,20.52 L74.08,20.29 L75.08,20.09 L76.12,19.91 L77.20,19.76 L78.32,19.65 L79.49,19.56 L80.69,19.51 L81.96,19.50 L82.04,16.50 L80.74,16.42 L79.46,16.36 L78.22,16.32 L77.00,16.30 L75.82,16.32 L74.66,16.36 L73.53,16.42 L72.43,16.51 L71.36,16.63 L70.31,16.78 L69.28,16.96 L68.28,17.16 L67.31,17.40 L66.36,17.66 L65.43,17.95 L64.52,18.27 L63.64,18.61 L62.78,18.99 L61.94,19.39 L61.12,19.82 L60.33,20.28 L59.56,20.77 L58.82,21.28 L58.10,21.82 L57.40,22.38 L56.73,22.97 L56.08,23.58 L55.46,24.21 L54.86,24.87 L54.28,25.54 L53.73,26.23 L53.20,26.93 L52.70,27.66 L52.21,28.39 L51.75,29.14 L51.31,29.91 L50.89,30.68 L50.49,31.47 L50.11,32.26 L49.75,33.07 L49.41,33.88 L49.08,34.70 L48.77,35.52 L48.48,36.35 L48.20,37.19 L47.93,38.03 L47.68,38.88 L47.44,39.73 L47.22,40.58 L47.00,41.43 L46.79,42.28 L46.60,43.14 L46.41,43.99 L46.24,44.85 L46.07,45.70 L45.91,46.55 L45.75,47.40 L45.60,48.25 L45.46,49.10 L45.32,49.94 L45.18,50.78 L45.05,51.61 L44.92,52.44 L44.79,53.26 L44.66,54.08 L44.54,54.88 L44.41,55.69 L44.29,56.48 L44.16,57.27 L44.03,58.05 L43.90,58.82 L43.77,59.58 L43.63,60.33 L43.49,61.07 L43.35,61.80 L43.20,62.51 L43.05,63.22 L42.89,63.91 L42.72,64.60 L42.55,65.27 L42.37,65.92 L42.18,66.57 L41.98,67.20 L41.78,67.82 L41.56,68.42 L41.34,69.02 L41.10,69.59 L40.86,70.16 L40.60,70.71 L40.33,71.25 L40.04,71.78 L39.74,72.29 L39.43,72.80 L39.10,73.29 L38.75,73.77 L38.38,74.23 L37.99,74.69 L37.57,75.13 L37.14,75.57 L36.67,75.99 L36.18,76.40 L35.66,76.79 L35.11,77.18 L34.53,77.55 L33.91,77.90 L33.26,78.24 L32.58,78.56 L31.86,78.86 L31.10,79.14 L30.30,79.39 L29.46,79.63 L28.58,79.84 L27.67,80.03 L26.71,80.19 L25.71,80.32 L24.68,80.43 L23.60,80.50 L22.48,80.54 L21.32,80.54 L20.10,80.50Z" fill="currentColor"/><circle cx="20" cy="82" r="5.5" fill="currentColor"/><circle cx="82" cy="18" r="5.5" fill="currentColor"/>'; document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="m16" viewBox="0 0 100 100">${inner.replace(/ pathLength="1"/, '')}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 100 100">${inner}</svg>`; const m2 = $('#mark2'); if (m2) m2.innerHTML = `<svg viewBox="0 0 100 100"><use href="#m16"/></svg>`; const b = $('.nb-brand'); const ink = () => { b.classList.remove('ink'); void b.offsetWidth; b.classList.add('ink'); }; ink(); b.addEventListener('mouseenter', ink); }
 render();

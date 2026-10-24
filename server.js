@@ -9,6 +9,8 @@ import { buildLaunchTx, confirmLaunch } from './lib/launch.js';
 import { iconSvg, iconPng, glyphSvg } from './lib/icon.js';
 import { putFile, putJson, assetsDir } from './lib/store.js';
 import * as L from './lib/live.js';
+import * as SW from './lib/swap.js';
+import { Keypair } from '@solana/web3.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -40,6 +42,17 @@ app.get('/api/coin/:mint/live', async (req, res) => {
   const f = db.prepare('select * from coins where mint=?').get(c.mint);
   res.json({ coin: pub(f), hist: JSON.parse(f.hist || '[]'), trades: db.prepare('select * from trades where mint=? order by at desc limit 100').all(c.mint) });
 });
+app.post('/api/swap', async (req, res) => {
+  try {
+    const { mint, wallet, side, amount } = req.body; const c = db.prepare('select * from coins where mint=?').get(mint);
+    if (!c) return res.status(404).json({ error: 'no such coin' }); if (DRY || c.pool === 'dry') return res.status(400).json({ error: 'trading is off in dry run' });
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(wallet))) return res.status(400).json({ error: 'connect a wallet' });
+    res.json(await SW.quoteAndBuild({ pool: c.pool, wallet, side: side === 'sell' ? 'sell' : 'buy', amount }));
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.get('/api/balance/:mint/:wallet', async (req, res) => {
+  try { if (DRY) return res.json({ sol: 0, tokens: 0, dry: true }); res.json(await SW.balances(req.params)); } catch (e) { res.status(400).json({ error: e.message }); }
+});
 app.get('/api/presets', (req, res) => res.json(Object.fromEntries(Object.keys(C.PRESETS).map(k => [k, C.presetPoints(k)]))));
 
 // live quote for a drawing (real DBC math)
@@ -63,7 +76,10 @@ app.post('/api/preview-icon', (req, res) => { try { res.type('image/svg+xml').se
 // ---- launch: 1) build unsigned tx(s) for the creator's wallet, 2) creator signs+sends in browser, 3) we confirm & record ----
 app.post('/api/launch/prepare', async (req, res) => {
   try {
-    const { creator, name, ticker, description = '', points, taxStartBps = 0, tax = {}, firstBuySol = 0, logo = null } = req.body;
+    const { creator, name, ticker, description = '', points, taxStartBps = 0, tax = {}, firstBuySol = 0, logo = null, twitter = '' } = req.body;
+    const tw = String(twitter || '').trim().replace(/^@/, ''); const twUrl = !tw ? null : /^https?:\/\/(www\.)?(x|twitter)\.com\/[A-Za-z0-9_/.-]+$/.test(tw) ? tw : /^[A-Za-z0-9_]{1,15}$/.test(tw) ? `https://x.com/${tw}` : null;
+    if (tw && !twUrl) return res.status(400).json({ error: 'X link should be a handle or an x.com link' });
+    const mintKp = Keypair.generate(); const mintAddr = DRY ? crypto.randomBytes(32).toString('hex').slice(0, 44) : mintKp.publicKey.toBase58();
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(creator))) return res.status(400).json({ error: 'connect a wallet first' });
     const nm = String(name || '').trim().slice(0, 32), tk = String(ticker || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     if (nm.length < 1 || tk.length < 2) return res.status(400).json({ error: 'name and ticker (2–10 letters)' });
@@ -78,15 +94,15 @@ app.post('/api/launch/prepare', async (req, res) => {
       try { const sharp = (await import('sharp')).default; out = await sharp(buf).resize(512, 512, { fit: 'cover' }).png().toBuffer(); } catch { type = logo.slice(5, logo.indexOf(';')); }
       logoUrl = await putFile(`${stamp}-logo.png`, out, type); imageUrl = logoUrl;
     } else imageUrl = curveUrl;
-    const uri = await putJson(`${stamp}.json`, { name: nm, symbol: tk, description: description.slice(0, 300) || `${nm} — a hand-drawn ${q.shape} curve on spline (SPL-16).`, image: imageUrl, website: site(), createdOn: site(), attributes: [{ trait_type: 'standard', value: 'SPL-16' }, { trait_type: 'shape', value: q.shape }, { trait_type: 'points', value: 16 }, { trait_type: 'curve', value: points.map(v => Math.round(Number(v) * 1000) / 1000).join(',') }], properties: { curve_image: curveUrl } });
+    const uri = await putJson(`${stamp}.json`, { name: nm, symbol: tk, description: description.slice(0, 300) || `${nm} — a hand-drawn ${q.shape} curve on spline (SPL-16).`, image: imageUrl, website: `${site()}/c/${mintAddr}`, ...(twUrl ? { twitter: twUrl } : {}), createdOn: site(), attributes: [{ trait_type: 'standard', value: 'SPL-16' }, { trait_type: 'shape', value: q.shape }, { trait_type: 'points', value: 16 }, { trait_type: 'curve', value: points.map(v => Math.round(Number(v) * 1000) / 1000).join(',') }], properties: { curve_image: curveUrl } });
     if (DRY) {
-      const mint = crypto.randomBytes(32).toString('hex').slice(0, 44), pool = 'dry';
-      record({ mint, pool, config: 'dry', name: nm, ticker: tk, description, image: imageUrl, logo: logoUrl, uri, creator, points, taxStartBps, q, sig: 'dry' });
+      const mint = mintAddr, pool = 'dry';
+      record({ mint, pool, config: 'dry', name: nm, ticker: tk, description, image: imageUrl, logo: logoUrl, uri, creator, points, taxStartBps, q, sig: 'dry', twitter: twUrl });
       return res.json({ dry: true, mint, pool });
     }
-    const built = await buildLaunchTx({ creator, name: nm, symbol: tk, uri, points, taxStartBps: Number(taxStartBps) || 0, tax, firstBuySol: Number(firstBuySol) || 0 });
+    const built = await buildLaunchTx({ creator, name: nm, symbol: tk, uri, points, taxStartBps: Number(taxStartBps) || 0, tax, firstBuySol: Number(firstBuySol) || 0, baseMint: mintKp });
     db.prepare('insert or replace into drafts (id, creator, points, tax_start_bps, name, ticker, created_at) values (?,?,?,?,?,?,?)').run(built.mint, creator, JSON.stringify(points), Number(taxStartBps) || 0, nm, tk, now());
-    pending.set(built.mint, { ...built, name: nm, ticker: tk, description, image: imageUrl, logo: logoUrl, uri, creator, points, taxStartBps: Number(taxStartBps) || 0, q });
+    pending.set(built.mint, { ...built, twitter: twUrl, name: nm, ticker: tk, description, image: imageUrl, logo: logoUrl, uri, creator, points, taxStartBps: Number(taxStartBps) || 0, q });
     res.json({ txs: built.txs, mint: built.mint, pool: built.pool, config: built.config, quote: q, image: imageUrl });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -101,12 +117,14 @@ app.post('/api/launch/confirm', async (req, res) => {
     res.json({ ok: true, mint, pool: p.pool });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-function record({ mint, pool, config, name, ticker, description, image, logo, uri, creator, points, taxStartBps, q, sig }) {
+function record({ mint, pool, config, name, ticker, description, image, logo, uri, creator, points, taxStartBps, q, sig, twitter }) {
   db.prepare(`insert or ignore into coins (mint, pool, config, name, ticker, description, image, logo, metadata_uri, creator, points, shape, tax_start_bps, to_graduate_sol, start_mcap_sol, grad_mcap_sol, launch_sig, created_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(mint, pool, config, name, ticker, description || '', image, logo || null, uri, creator, JSON.stringify(points), q.shape, Number(taxStartBps) || 0, q.toGraduateSol, q.startMcapSol, q.gradMcapSol, sig, now());
   if (q.tax) db.prepare('update coins set tax_json=? where mint=?').run(JSON.stringify(q.tax), mint);
+  if (twitter) db.prepare('update coins set twitter=? where mint=?').run(twitter, mint);
 }
 try { db.exec('alter table coins add column tax_json text'); } catch {}
+try { db.exec('alter table coins add column twitter text'); } catch {}
 
 // ---- live loop: every 30s refresh every pool that hasn't graduated (stats + new trades) ----
 async function loop() {
