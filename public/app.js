@@ -27,7 +27,7 @@ const taxAt = s => { const r = Math.pow(100 / 9500, 1 / 60); const n = Math.min(
 // ---------- wallet ----------
 const provider = () => window.solana || window.phantom?.solana;
 async function connect() { const p = provider(); if (!p) { alert('No Solana wallet found. Install Phantom.'); return null; } const r = await p.connect(); wallet = r.publicKey.toString(); paintWallet(); return wallet; }
-function paintWallet() { const b = $('#wallet span'); b.textContent = wallet ? short(wallet) : 'Connect wallet'; $('#wallet').classList.toggle('pri', !wallet); }
+function paintWallet() { const b = $('#wallet span'); b.textContent = wallet ? short(wallet) : 'Connect'; }
 $('#wallet').onclick = async () => { if (wallet) { try { await provider().disconnect(); } catch {} wallet = null; paintWallet(); } else connect(); };
 provider()?.connect?.({ onlyIfTrusted: true }).then(r => { wallet = r.publicKey.toString(); paintWallet(); }).catch(() => {});
 async function state() { S = await (await fetch('/api/state')).json(); if (!PRESETS) PRESETS = await (await fetch('/api/presets')).json(); return S; }
@@ -180,63 +180,64 @@ function mountCanvas(root, { compact = false } = {}) {
 
 // ---------- pages ----------
 const mcapOf = c => (c.price_sol ? c.price_sol * 1e9 : c.start_mcap_sol);
-const bigGlyph = points => { const { d, pts } = curvePath(points, 100, 100, 24); const e = pts[pts.length - 1]; return `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="currentColor" opacity=".07"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".38"/><circle cx="${e[0].toFixed(1)}" cy="${e[1].toFixed(1)}" r="4.5" fill="currentColor" opacity=".5"/></svg>`; };
+// a coin card is a small plate: the drawn curve, with where the price is now
+function plate(c, W = 290, H = 128) {
+  const pad = 14, lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
+  const X = f => pad + (W - 2 * pad) * f, Y = m => H - pad - (H - 2 * pad) * Math.max(0, Math.min(1, (m - lo) / (hi - lo)));
+  const pts = c.points.map((v, i) => [X(i / (N - 1)), Y(lo + (hi - lo) * v)]);
+  const d = 'M' + pts.map(p => p.map(n => n.toFixed(1)).join(',')).join(' L');
+  const sold = Math.max(0, Math.min(1, c.sold_pct || 0)); const lx = X(sold), ly = Y(mcapOf(c));
+  const done = pts.filter(p => p[0] <= lx); const prog = done.length ? 'M' + [...done, [lx, ly]].map(p => p.map(n => n.toFixed(1)).join(',')).join(' L') : '';
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="pl">
+    ${pts.map(p => `<line x1="${p[0].toFixed(1)}" x2="${p[0].toFixed(1)}" y1="${pad}" y2="${H - pad}" class="st"/>`).join('')}
+    <line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" class="bl"/>
+    <path d="${d} L${pts[N - 1][0]},${H - pad} L${pts[0][0]},${H - pad} Z" class="ar"/><path d="${d}" class="ln"/>
+    ${prog ? `<path d="${prog}" class="pg"/>` : ''}${pts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="1.8" class="dk"/>`).join('')}
+    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5" class="now"/></svg>`;
+}
 function coinCard(c) {
   const pct = c.migrated ? 100 : Math.round((c.progress || 0) * 100);
-  return `<a class="cc" href="/c/${c.mint}">
-    <div class="cl"><div class="lg">${coinIcon(c)}</div><span class="tk">$${esc(c.ticker)}</span><b class="mc">${mcapOf(c).toFixed(1)}<small> SOL</small></b>
-    <span class="ln"><span class="g">${glyph(c.points, 22, 12)}</span>${esc(c.shape)} · ${c.migrated ? 'graduated' : pct + '% to graduation'}${c.tax_start_bps && Date.now() - c.created_at < 600e3 ? ' · <em class="hot">tax on</em>' : ''}</span></div>
-    <div class="cr">${bigGlyph(c.points)}</div>
-    <div class="cbar"><i style="width:${Math.max(pct, 1)}%"></i></div></a>`;
-}
-function heroCurve(P) {
-  const W = 420, H = 230, pad = 26; const pts = P.map((v, i) => [pad + (W - 2 * pad) * i / (N - 1), H - pad - (H - 2 * pad) * v]);
-  const { d } = curvePath(P, W, H, pad);
-  const grid = Array.from({ length: N }, (_, i) => `<line x1="${pts[i][0]}" x2="${pts[i][0]}" y1="${pad - 8}" y2="${H - pad}" stroke="#fff" stroke-opacity=".06"/>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" class="hc">${grid}<line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" stroke="#fff" stroke-opacity=".18"/>
-    <path d="${d}" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="9" stroke-linecap="round"/><path class="draw" d="${d}" fill="none" stroke="#f4f2ec" stroke-width="2" stroke-linecap="round" pathLength="1"/>
-    ${pts.map((p, i) => `<g class="dk" style="animation-delay:${(0.15 + i * 0.09).toFixed(2)}s" transform="translate(${(p[0] - 7).toFixed(1)},${(p[1] - 1).toFixed(1)}) scale(.32)"><path d="M22 2 L22 9" stroke="#f4f2ec" stroke-width="3"/><path d="M4 26 C4 15 13 9 23 9 C31 9 37 13 40 18 C41.5 21 40 26 36 26 Z" fill="#f4f2ec"/></g>`).join('')}</svg>`;
+  return `<a class="pc" href="/c/${c.mint}">
+    <div class="pc-p">${plate(c)}<span class="pc-shape">${esc(c.shape)}</span>${c.tax_start_bps && Date.now() - c.created_at < 600e3 ? '<span class="pc-tax">tax on</span>' : ''}</div>
+    <div class="pc-b"><div class="pc-id"><div class="lg">${coinIcon(c)}</div><div><b>${esc(c.name)}</b><span>$${esc(c.ticker)}</span></div></div>
+      <div class="pc-n"><b>${mcapOf(c).toFixed(1)}</b><span>SOL mcap</span></div></div>
+    <div class="pc-f"><span>${c.migrated ? 'graduated' : pct + '% to graduation'}</span><span>${c.trades ? c.trades + ' trades · ' : ''}${ago(c.created_at)}</span></div></a>`;
 }
 let SORT = 'mcap', SHAPE = '', QRY = '';
 function home() {
-  const T = S.totals; const top = [...S.coins].sort((a, b) => (b.volume_sol || 0) - (a.volume_sol || 0))[0];
-  const shapes = [...new Set(S.coins.map(c => c.shape))];
-  const stat = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+  const T = S.totals; const by = k => [...S.coins].sort((a, b) => (b[k] || 0) - (a[k] || 0));
+  const spot = by('volume_sol')[0]?.volume_sol ? by('volume_sol')[0] : S.coins[0];
+  const shapes = Object.keys(PRESETS);
+  const num = (v, k) => `<div><b>${v}</b><span>${k}</span></div>`;
   app.innerHTML = `<div class="page">
-  <section class="feat">
-    <div class="slide on">
-      <div class="ft"><span class="kick">SPL-16 · The spline standard</span><h1>Draw the curve your coin trades on.</h1>
-        <p>Every coin here runs on its own Meteora bonding curve, drawn by whoever launched it. Sixteen points become one on-chain config. Nobody can edit it afterwards — not the creator, not us.</p>
-        <div class="fstats">${stat('Coins drawn', T.coins)}${stat('SOL on curves', Number(T.tvl).toFixed(2))}${stat('Volume', Number(T.volume || 0).toFixed(2) + ' SOL')}${stat('Trades', T.trades || 0)}${stat('Graduated', T.graduated)}</div>
-        <div class="fbtn"><a class="btn light" href="/draw">Draw a curve <span>→</span></a><a class="btn darkb" href="/standard">Read the standard <span>→</span></a></div></div>
-      <div class="fart">${heroCurve(PRESETS.hockey || Object.values(PRESETS)[0])}</div>
-    </div>
-    ${top && top.volume_sol ? `<div class="slide">
-      <div class="ft"><span class="kick">Most traded · ${esc(top.shape)} curve</span><h1>${esc(top.name)} <span class="dim">$${esc(top.ticker)}</span></h1>
-        <p>${top.description ? esc(top.description) : `Drawn ${ago(top.created_at)} ago by ${short(top.creator)}.`}</p>
-        <div class="fstats">${stat('Market cap', mcapOf(top).toFixed(1) + ' SOL')}${stat('Volume', Number(top.volume_sol).toFixed(2) + ' SOL')}${stat('Trades', top.trades || 0)}${stat('To graduation', Math.round((top.progress || 0) * 100) + '%')}</div>
-        <div class="fbtn"><a class="btn light" href="/c/${top.mint}">Open $${esc(top.ticker)} <span>→</span></a></div></div>
-      <div class="fart">${heroCurve(top.points)}</div>
-    </div>` : ''}
-    <div class="dots"></div>
+  <section class="top5">
+    <div><h1>Curves</h1><p>Every coin here trades on a bonding curve its creator drew — 16 points, one Meteora config, fixed for good.</p></div>
+    <div class="nums">${num(T.coins, 'drawn')}${num(Number(T.volume || 0).toFixed(1), 'SOL traded')}${num(T.trades || 0, 'trades')}${num(T.graduated, 'graduated')}<a class="btn pri" href="/draw">Draw a curve</a></div>
   </section>
-  <div class="notice"><b>Price only goes up the curve.</b><span>Dips in a drawing are flattened before launch, and the config is immutable once it's on chain.</span><a href="/standard#anatomy">How a curve works →</a></div>
-  <div class="ctrl"><label class="search"><i data-lucide="search"></i><input id="q" placeholder="Search" value="${esc(QRY)}"></label>
-    <div class="r"><span class="lbl">Sort</span><div class="seg" id="sort">${[['mcap', 'Mcap'], ['recent', 'Recent'], ['volume', 'Volume']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
-    <label class="sel"><select id="shape"><option value="">All shapes</option>${shapes.map(x => `<option ${SHAPE === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label></div></div>
-  <div class="cgrid" id="cgrid"></div></div>`;
+  ${spot ? `<section class="spot">
+    <a class="spot-l" href="/c/${spot.mint}">
+      <div class="spot-h"><div class="lg">${coinIcon(spot)}</div><div><span class="eyebrow">${spot.volume_sol ? 'Most traded' : 'Newest'}</span><b>${esc(spot.name)} <span>$${esc(spot.ticker)}</span></b></div>
+        <div class="spot-n"><b>${mcapOf(spot).toFixed(1)} SOL</b><span>${((spot.sold_pct || 0) * 100).toFixed(1)}% of curve sold · ${Number(spot.volume_sol || 0).toFixed(2)} SOL volume</span></div></div>
+      <div class="spot-c">${plate(spot, 840, 200)}</div></a>
+    <div class="spot-r"><span class="eyebrow">Just drawn</span>
+      ${S.coins.slice(0, 6).map(c => `<a href="/c/${c.mint}" class="row"><span class="g">${glyph(c.points, 34, 18)}</span><b>$${esc(c.ticker)}</b><span class="m">${mcapOf(c).toFixed(1)}</span><span class="a">${ago(c.created_at)}</span></a>`).join('')}
+    </div>
+  </section>` : ''}
+  <div class="bar5">
+    <div class="tabs" id="sort">${[['mcap', 'Market cap'], ['recent', 'Newest'], ['volume', 'Volume'], ['progress', 'Closest to graduation']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <div class="shp" id="shape"><button data-s="" class="${SHAPE ? '' : 'on'}">All</button>${shapes.map(k => `<button data-s="${k}" class="${SHAPE === k ? 'on' : ''}" title="${k}">${glyph(PRESETS[k], 26, 14)}</button>`).join('')}</div>
+    <label class="search"><i data-lucide="search"></i><input id="q" placeholder="Name, ticker or mint" value="${esc(QRY)}"></label>
+  </div>
+  <div class="pgrid" id="cgrid"></div></div>`;
   const paint = () => {
     let xs = S.coins.filter(c => (!SHAPE || c.shape === SHAPE) && (!QRY || (c.name + ' ' + c.ticker + ' ' + c.mint).toLowerCase().includes(QRY.toLowerCase())));
-    xs.sort(SORT === 'recent' ? (a, b) => b.created_at - a.created_at : SORT === 'volume' ? (a, b) => (b.volume_sol || 0) - (a.volume_sol || 0) : (a, b) => mcapOf(b) - mcapOf(a));
-    $('#cgrid').innerHTML = xs.length ? xs.map(coinCard).join('') : `<div class="card empty" style="grid-column:1/-1"><b>${S.coins.length ? 'No matches.' : 'No coins yet.'}</b><a href="/draw">Draw one →</a></div>`;
+    xs.sort(SORT === 'recent' ? (a, b) => b.created_at - a.created_at : SORT === 'volume' ? (a, b) => (b.volume_sol || 0) - (a.volume_sol || 0) : SORT === 'progress' ? (a, b) => (b.progress || 0) - (a.progress || 0) : (a, b) => mcapOf(b) - mcapOf(a));
+    $('#cgrid').innerHTML = xs.length ? xs.map(coinCard).join('') : `<div class="card empty" style="grid-column:1/-1"><b>${S.coins.length ? 'Nothing matches.' : 'No coins yet.'}</b><a href="/draw">Draw one →</a></div>`;
   };
   $('#q').oninput = e => { QRY = e.target.value; paint(); };
-  $('#sort').onclick = e => { const k = e.target.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
-  $('#shape').onchange = e => { SHAPE = e.target.value; paint(); };
+  $('#sort').onclick = e => { const k = e.target.closest('button')?.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
+  $('#shape').onclick = e => { const b = e.target.closest('button'); if (!b) return; SHAPE = b.dataset.s; document.querySelectorAll('#shape button').forEach(x => x.classList.toggle('on', x === b)); paint(); };
   paint();
-  // carousel
-  const sl = [...document.querySelectorAll('.feat .slide')]; const dots = $('.feat .dots');
-  if (sl.length > 1) { let i = 0; dots.innerHTML = sl.map((_, k) => `<i data-i="${k}" class="${k ? '' : 'on'}"></i>`).join(''); const go = k => { i = k; sl.forEach((x, j) => x.classList.toggle('on', j === k)); dots.querySelectorAll('i').forEach((x, j) => x.classList.toggle('on', j === k)); }; dots.onclick = e => e.target.dataset.i && go(+e.target.dataset.i); clearInterval(window.__car); window.__car = setInterval(() => document.contains(dots) ? go((i + 1) % sl.length) : clearInterval(window.__car), 8000); }
 }
 function drawPage() {
   const lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
@@ -495,15 +496,12 @@ const CRUMB = { '/': 'Home', '/coins': 'Home', '/draw': 'Draw', '/lab': 'Draw', 
 async function render() {
   clearInterval(LIVE);
   await state(); const r = location.pathname;
-  document.querySelectorAll('.sb-nav a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === '/' ? (r === '/' || r === '/coins') : r.startsWith(a.dataset.r) || (a.dataset.r === '/draw' && r === '/lab')));
+  document.querySelectorAll('.nb-nav a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === '/' ? (r === '/' || r === '/coins') : r.startsWith(a.dataset.r) || (a.dataset.r === '/draw' && r === '/lab')));
   const cname = r.startsWith('/c/') ? (S.coins.find(c => c.mint === r.slice(3))?.ticker ? '$' + S.coins.find(c => c.mint === r.slice(3)).ticker : 'Coin') : (CRUMB[r] || '—');
-  $('#crumb').innerHTML = `<a href="/">SPL-16</a><span>/</span><b>${esc(cname)}</b>`;
   document.title = r === '/' ? 'SPL-16' : `${cname} · SPL-16`;
   if (r === '/' || r === '/coins') home(); else if (r === '/draw' || r === '/lab') drawPage(); else if (r === '/mine') await mine(); else if (r === '/standard') await standard(); else if (r.startsWith('/c/')) await coinPage(r.slice(3)); else notFound();
   if (window.lucide) lucide.createIcons();
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
-try { if (localStorage.getItem('annx')) $('#annbar').remove(); } catch {}
-$('#annx')?.addEventListener('click', () => { $('#annbar').remove(); try { localStorage.setItem('annx', 1); } catch {} });
-fetch('/swan.svg').then(r => r.text()).then(t => { const inner = t.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''); document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="swan" viewBox="0 0 1000 561">${inner}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 1000 561"><use href="#swan"/></svg>`; });
+fetch('/swan.svg').then(r => r.text()).then(t => { const inner = t.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''); document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="swan" viewBox="0 0 1000 561">${inner}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 1000 561"><use href="#swan"/></svg>`; const m2 = $('#mark2'); if (m2) m2.innerHTML = $('#mark').innerHTML; });
 render();
