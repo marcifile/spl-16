@@ -22,7 +22,11 @@ const coinIcon = c => c.logo ? `<img src="${esc(c.logo)}" alt="">` : iconSvg(c.p
 // a spline weight ("duck"): lead body, brass prong that holds the strip at the point
 const DUCK = `<svg viewBox="0 0 44 30" class="duck-svg"><path d="M22 2 L22 9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M4 26 C4 15 13 9 23 9 C31 9 37 13 40 18 C41.5 21 40 26 36 26 Z" fill="currentColor"/><circle cx="22" cy="2.6" r="2.2" fill="currentColor"/></svg>`;
 // Meteora exponential fee scheduler, as configured: 95% → 1% in 60 steps over 600s
-const taxAt = s => { const r = Math.pow(100 / 9500, 1 / 60); const n = Math.min(60, Math.floor(s / 10)); return 9500 * Math.pow(r, n) / 100; };
+// Meteora's fee scheduler: 95% at open, stepping every 10 s to 1% over T.seconds, linear or exponential
+let TAX = { mode: 'exp', seconds: 600 };
+const taxAt = (s, T = TAX) => { const P = T.seconds / 10, n = Math.min(P, Math.floor(s / 10)); return T.mode === 'linear' ? 95 - (94 * n) / P : 95 * Math.pow(1 / 95, n / P); };
+const mmss = s => `${Math.floor(s / 60)}m${s % 60 ? ` ${s % 60}s` : ''}`;
+const TAXMAX = 1200;
 
 // ---------- wallet ----------
 const provider = () => window.solana || window.phantom?.solana;
@@ -36,14 +40,14 @@ async function state() { S = await (await fetch('/api/state')).json(); if (!PRES
 function canvasHTML() {
   return `
   <div class="card lab-card">
-    <div class="ch"><h2>Lines plan <span class="sub">market cap against supply sold</span></h2><div class="chr"><span class="rule" id="rule"><i></i>price only goes up</span><button class="btn sm" id="clear">Clear</button></div></div>
+    <div class="ch"><h2>Lines plan <span class="sub">market cap against supply sold</span></h2><div class="chr"><span class="rule warn" id="rule" style="display:none"></span><button class="btn sm" id="clear">Clear</button></div></div>
     <div class="stage"><div class="canvas board" id="cv">
       <div class="grid-bg"></div>
       <div class="stations" id="stations"></div>
       <svg id="svg" viewBox="0 0 1000 560" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#111114" stop-opacity=".06"/><stop offset="1" stop-color="#111114" stop-opacity="0"/></linearGradient></defs>
         <g id="ticks"></g><path id="area" fill="url(#fill)"/><g id="ink"></g><path id="raw" fill="none"/><path id="strip" pathLength="1" fill="none" stroke="#e9dcc0" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/><path id="line" pathLength="1" fill="none" stroke="#111114" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><g id="fixes"></g></svg>
       <div id="ducks"></div>
-      <svg class="wm-swan" viewBox="0 0 1000 561"><use href="#swan"/></svg>
+      <svg class="wm-swan" viewBox="0 0 100 100"><use href="#m16"/></svg>
       <svg class="ghost" id="ghost" viewBox="0 0 1000 560" preserveAspectRatio="none"><path id="gp" d="M70,500 C260,492 380,470 470,420 C560,370 620,260 700,200 C770,150 860,120 930,90" fill="none" stroke="#111114" stroke-opacity=".22" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke" pathLength="1"/></svg>
       <div class="nib" id="nib"><svg viewBox="0 0 24 24"><path d="M3 21l3.5-1 11-11-2.5-2.5-11 11L3 21z" fill="#111114"/><path d="M15 6.5l2.5 2.5 2.2-2.2a1.2 1.2 0 000-1.7l-.8-.8a1.2 1.2 0 00-1.7 0L15 6.5z" fill="#111114"/></svg></div>
       <div class="ylab" id="ylab"></div><div class="xlab" id="xlab"></div>
@@ -65,9 +69,10 @@ function canvasHTML() {
     <div class="card step locked" id="s2"><div class="sec">
       <div class="sh"><b>2</b><h3>Sniper tax</h3><label class="switch" id="taxsw"><i></i><span>off</span></label></div>
       <div class="body">
-        <p class="note" style="margin-top:0">Optional. A buy fee of 95% at launch, stepping down every 10 seconds to 1% at minute ten. Meteora's fee scheduler only decays — it cannot be raised again.</p>
-        <div class="canvas tax" id="taxbar"><div class="grid-bg" style="background-size:10% 25%"></div><svg id="taxsvg" viewBox="0 0 400 100" preserveAspectRatio="none"><path id="taxarea" fill="#c8443a" fill-opacity=".08"/><path id="taxline" fill="none" stroke="#c8443a" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><span class="axis" style="left:8px;top:6px">95%</span><span class="axis" style="left:8px;bottom:6px">1%</span><span class="axis" style="right:8px;bottom:6px">10 min</span><span class="axis" style="left:50%;bottom:6px;transform:translateX(-50%)">5 min</span></div>
-        <div class="kv"><span>At 1 min · 3 min · 5 min</span><b id="k-tax">${taxAt(60).toFixed(0)}% · ${taxAt(180).toFixed(0)}% · ${taxAt(300).toFixed(1)}%</b></div>
+        <p class="note" style="margin-top:0">Optional. Buys pay 95% at open. Draw how fast it falls to 1% — your stroke is fitted to Meteora's fee scheduler, which can only go down.</p>
+        <div class="canvas tax" id="taxbar"><div class="grid-bg" style="background-size:10% 25%"></div><svg id="taxsvg" viewBox="0 0 400 100" preserveAspectRatio="none"><path id="taxarea" fill="#c8443a" fill-opacity=".08"/><path id="taxink" fill="none" stroke="#17171a" stroke-opacity=".35" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/><path id="taxline" fill="none" stroke="#c8443a" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><span class="axis" style="left:8px;top:6px">95%</span><span class="axis" style="left:8px;bottom:6px">1%</span><span class="axis" style="right:8px;bottom:6px">20 min</span><span class="axis" style="left:50%;bottom:6px;transform:translateX(-50%)">10 min</span><div class="taxhint" id="taxhint">draw the decay</div></div>
+        <div class="kv"><span>Fitted schedule</span><b id="k-fit">exponential · 10m</b></div>
+        <div class="kv"><span>At 1 min · 3 min · 5 min</span><b id="k-tax">—</b></div>
       </div></div></div>
     <div class="card step locked" id="s3"><div class="sec">
       <div class="sh"><b>3</b><h3>Name</h3></div>
@@ -107,7 +112,7 @@ function mountCanvas(root, { compact = false } = {}) {
   function render(final) {
     $('#ghost').classList.toggle('off', !!(pts || raw.length));
     const rule = $('#rule');
-    if (!pts) { ['#line', '#area', '#strip'].forEach(i => $(i).setAttribute('d', '')); $('#ducks').innerHTML = ''; $('#fixes').innerHTML = ''; $('#anns').innerHTML = ''; $('#hint').classList.remove('off'); rule.className = 'rule'; rule.innerHTML = '<i></i>price only goes up'; ['#k-grad', '#k-first', '#k-buy', '#k-mcap', '#k-shape'].forEach(k => ($(k).textContent = '—')); document.querySelectorAll('.shape').forEach(s => s.classList.remove('on')); stepOn(2, false); stepOn(3, false); stepOn(4, false); paintPreview(); return; }
+    if (!pts) { ['#line', '#area', '#strip'].forEach(i => $(i).setAttribute('d', '')); $('#ducks').innerHTML = ''; $('#fixes').innerHTML = ''; $('#anns').innerHTML = ''; $('#hint').classList.remove('off'); rule.style.display = 'none'; ['#k-grad', '#k-first', '#k-buy', '#k-mcap', '#k-shape'].forEach(k => ($(k).textContent = '—')); document.querySelectorAll('.shape').forEach(s => s.classList.remove('on')); stepOn(2, false); stepOn(3, false); stepOn(4, false); paintPreview(); return; }
     $('#hint').classList.add('off');
     const { d } = curvePath(pts.map(price), W, H, 0); // smooth spline through the ducks
     const sm = 'M' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
@@ -116,8 +121,8 @@ function mountCanvas(root, { compact = false } = {}) {
     $('#strip').setAttribute('d', spline); $('#line').setAttribute('d', spline); $('#area').setAttribute('d', spline + ` L${pts[N - 1].x},${H - PAD} L${pts[0].x},${H - PAD} Z`);
     $('#ducks').innerHTML = pts.map((p, i) => `<span class="duck${fixed.includes(i) ? ' bad' : ''}" style="left:${p.x / W * 100}%;top:${p.y / H * 100}%;--i:${i}" title="point ${i + 1}">${DUCK}</span>`).join('');
     $('#fixes').innerHTML = fixed.map(i => `<line x1="${pts[i - 1].x}" y1="${pts[i - 1].y}" x2="${pts[i].x}" y2="${pts[i].y}" stroke="#c8443a" stroke-width="3" vector-effect="non-scaling-stroke"/>`).join('');
-    if (fixed.length) { rule.className = 'rule warn'; rule.innerHTML = `<i></i>${fixed.length} dip${fixed.length > 1 ? 's' : ''} flattened`; if (final) { clearTimeout(toastT); $('#toast').classList.add('on'); toastT = setTimeout(() => $('#toast').classList.remove('on'), 2200); } }
-    else { rule.className = 'rule'; rule.innerHTML = '<i></i>valid · price only goes up'; }
+    if (fixed.length) { rule.style.display = ''; rule.className = 'rule warn'; rule.innerHTML = `<i></i>${fixed.length} dip${fixed.length > 1 ? 's' : ''} flattened`; if (final) { clearTimeout(toastT); $('#toast').classList.add('on'); toastT = setTimeout(() => $('#toast').classList.remove('on'), 2200); } }
+    else rule.style.display = 'none';
     const P = pts.map(price); paintPreview();
     const dif = P.map((v, i) => (i ? v - P[i - 1] : 0)); let bi = 1; for (let i = 1; i < N; i++) if (dif[i] > dif[bi]) bi = i; const flats = dif.filter(v => v < .012).length;
     const r = cv.getBoundingClientRect(); const px = p => ({ l: Math.max(80, Math.min(r.width - 80, p.x / W * r.width)), t: p.y / H * r.height }); const a = px(pts[bi]), b = px(pts[Math.max(1, Math.floor(N / 4))]);
@@ -125,7 +130,7 @@ function mountCanvas(root, { compact = false } = {}) {
     clearTimeout(quoteT); quoteT = setTimeout(() => quote(P, final), final ? 0 : 120);
   }
   async function quote(P, final) {
-    const r = await fetch('/api/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ points: P, taxStartBps: taxOn ? 9500 : 0 }) }); const q = await r.json();
+    const r = await fetch('/api/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ points: P, taxStartBps: taxOn ? 9500 : 0, tax: TAX }) }); const q = await r.json();
     if (q.error) { $('#err').textContent = q.error; return; } lastQ = q; $('#err').textContent = '';
     set('#k-grad', sol(q.toGraduateSol, 1)); set('#k-first', sol(q.first10Sol, 2)); set('#k-buy', q.oneSolBuysPct + '% of supply'); set('#k-mcap', `${q.startMcapSol} → ${q.gradMcapSol} SOL`); set('#k-shape', q.shape);
     document.querySelectorAll('.shape').forEach(s => s.classList.toggle('on', s.dataset.s === q.shape)); // detected, not selected
@@ -151,7 +156,30 @@ function mountCanvas(root, { compact = false } = {}) {
   ['#nm', '#tk'].forEach(id => $(id).addEventListener('input', () => { stepOn(4, true); updateLaunch(); }));
   $('#s3').addEventListener('click', () => { if (!$('#s3').classList.contains('locked')) stepOn(4, true); });
   // tax: the real schedule, read-only
-  (() => { const p = []; for (let s = 0; s <= 600; s += 10) p.push([s / 600 * 400, 100 - (taxAt(s) - 1) / 94 * 100]); let d = `M${p[0][0]},${p[0][1]}`; for (let i = 1; i < p.length; i++) d += ` L${p[i][0]},${p[i - 1][1]} L${p[i][0]},${p[i][1]}`; $('#taxline').setAttribute('d', d); $('#taxarea').setAttribute('d', d + ' L400,100 L0,100 Z'); })();
+  // sniper tax: draw the decay; fit mode + duration; show the real stepped schedule
+  const tb = $('#taxbar'); let tdraw = false, traw = [];
+  function paintTax() {
+    const X = t => t / TAXMAX * 400, Y = f => (95 - f) / 94 * 100;
+    let d = `M0,${Y(95)}`; for (let t = 10; t <= TAXMAX; t += 10) d += ` L${X(t)},${Y(taxAt(t - 10)).toFixed(2)} L${X(t)},${Y(taxAt(t)).toFixed(2)}`;
+    $('#taxline').setAttribute('d', d); $('#taxarea').setAttribute('d', d + ' L400,100 L0,100 Z');
+    set('#k-fit', `${TAX.mode === 'linear' ? 'linear' : 'exponential'} · ${mmss(TAX.seconds)}`);
+    set('#k-tax', `${taxAt(60).toFixed(0)}% · ${taxAt(180).toFixed(0)}% · ${taxAt(300).toFixed(1)}%`);
+  }
+  function fitTax() {
+    // samples: t in seconds, f in fee %, forced non-increasing from 95
+    const S2 = traw.map(p => ({ t: p.x / 400 * TAXMAX, f: 95 - p.y / 100 * 94 })); let m = 95; S2.forEach(q => { m = Math.min(m, q.f); q.f = m; });
+    const hit = S2.find(q => q.f <= 2.5); const sec = Math.max(60, Math.min(TAXMAX, Math.round((hit ? hit.t : S2[S2.length - 1].t) / 30) * 30));
+    const err = mode => S2.filter(q => q.t <= sec).reduce((a, q) => a + (q.f - taxAt(q.t, { mode, seconds: sec })) ** 2, 0);
+    TAX = { mode: err('linear') < err('exp') ? 'linear' : 'exp', seconds: sec }; paintTax();
+  }
+  const tp = e => { const r = tb.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: Math.max(0, Math.min(400, (t.clientX - r.left) / r.width * 400)), y: Math.max(0, Math.min(100, (t.clientY - r.top) / r.height * 100)) }; };
+  const tdown = e => { if (!taxOn) return; tdraw = true; traw = [{ x: 0, y: 0 }, tp(e)]; $('#taxhint').classList.add('off'); e.preventDefault(); };
+  const tmove = e => { if (!tdraw) return; const p = tp(e); if (p.x >= traw[traw.length - 1].x) traw.push(p); $('#taxink').setAttribute('d', 'M' + traw.map(q => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' L')); fitTax(); e.preventDefault(); };
+  const tup = () => { if (!tdraw) return; tdraw = false; fitTax(); $('#taxink').classList.add('fade'); if (pts) quote(pts.map(price), false); };
+  tb.addEventListener('mousedown', tdown); window.addEventListener('mousemove', tmove); window.addEventListener('mouseup', tup);
+  tb.addEventListener('touchstart', tdown, { passive: false }); window.addEventListener('touchmove', tmove, { passive: false }); window.addEventListener('touchend', tup);
+  tb.addEventListener('mousedown', () => $('#taxink').classList.remove('fade'));
+  paintTax();
   $('#taxsw').onclick = e => { e.stopPropagation(); if ($('#s2').classList.contains('locked')) return; taxOn = !taxOn; $('#taxsw').classList.toggle('on', taxOn); $('#taxsw').querySelector('span').textContent = taxOn ? 'on' : 'off'; $('#s2').classList.toggle('tax-on', taxOn); stepOn(3, true); if (pts) quote(pts.map(price), false); };
   // logo
   $('#logobtn').onclick = () => $('#logo').click();
@@ -161,7 +189,7 @@ function mountCanvas(root, { compact = false } = {}) {
   $('#launch').onclick = async () => {
     const err = $('#err'); err.textContent = '';
     if (!wallet && !(await connect())) return; updateLaunch(); if ($('#launch').disabled) return;
-    const body = { creator: wallet, name: $('#nm').value, ticker: $('#tk').value, description: $('#ds').value, points: pts.map(price), taxStartBps: taxOn ? 9500 : 0, firstBuySol: Number($('#fb').value) || 0, logo: logoData };
+    const body = { creator: wallet, name: $('#nm').value, ticker: $('#tk').value, description: $('#ds').value, points: pts.map(price), taxStartBps: taxOn ? 9500 : 0, tax: TAX, firstBuySol: Number($('#fb').value) || 0, logo: logoData };
     const b = $('#launch'); b.disabled = true; b.textContent = 'Preparing…';
     try {
       const r = await fetch('/api/launch/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json();
@@ -214,6 +242,28 @@ function coinCard(c) {
     <div class="pc-f"><span>${c.migrated ? 'graduated' : pct + '% to graduation'}</span><span>${c.trades ? c.trades + ' trades · ' : ''}${ago(c.created_at)}</span></div></a>`;
 }
 let SORT = 'mcap', SHAPE = '', QRY = '';
+function sketchPad() {
+  const el = $('#pad'), W = 300, H = 190, P = 14; let raw = [], on = false;
+  $('#padg').innerHTML = Array.from({ length: N }, (_, i) => { const x = P + (W - 2 * P) * i / (N - 1); return `<line x1="${x}" x2="${x}" y1="${P}" y2="${H - P}"/>`; }).join('') + `<line class="b" x1="${P}" x2="${W - P}" y1="${H - P}" y2="${H - P}"/>`;
+  const pt = e => { const r = el.getBoundingClientRect(), t = e.touches ? e.touches[0] : e; return { x: (t.clientX - r.left) / r.width * W, y: Math.max(P, Math.min(H - P, (t.clientY - r.top) / r.height * H)) }; };
+  const down = e => { on = true; raw = [pt(e)]; $('#padd').innerHTML = ''; $('#padl').setAttribute('d', ''); $('#padhint').classList.add('off'); el.classList.remove('done'); e.preventDefault(); };
+  const move = e => { if (!on) return; const p = pt(e); if (p.x >= raw[raw.length - 1].x) raw.push(p); $('#padink').setAttribute('d', 'M' + raw.map(q => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' L')); e.preventDefault(); };
+  const up = () => {
+    if (!on) return; on = false; if (raw.length < 4) return;
+    const ys = []; for (let i = 0; i < N; i++) { const x = P + (W - 2 * P) * i / (N - 1); let b = raw[0]; for (const q of raw) if (Math.abs(q.x - x) < Math.abs(b.x - x)) b = q; ys.push(b.y); }
+    for (let i = 1; i < N; i++) ys[i] = Math.min(ys[i], ys[i - 1]);
+    const v = ys.map(y => Math.max(0, Math.min(1, (H - P - y) / (H - 2 * P)))); if (v[N - 1] - v[0] < .05) v[N - 1] = Math.min(1, v[0] + .2);
+    const pts = v.map((h, i) => [P + (W - 2 * P) * i / (N - 1), H - P - (H - 2 * P) * h]);
+    $('#padl').setAttribute('d', curvePath(v, W, H, 0).d.replace(/[\d.]+,[\d.]+/g, m => m) && 'M' + pts.map(q => q.map(n => n.toFixed(1)).join(',')).join(' L'));
+    $('#padd').innerHTML = pts.map((q, i) => `<i style="left:${q[0] / W * 100}%;top:${q[1] / H * 100}%;--i:${i}"></i>`).join('');
+    el.classList.remove('done'); void el.offsetWidth; el.classList.add('done');
+    try { sessionStorage.setItem('sketch', JSON.stringify(v)); } catch {}
+    $('#padn').textContent = 'held at 16 points'; $('#padgo').textContent = 'Continue with this curve →';
+  };
+  el.addEventListener('mousedown', down); el.addEventListener('touchstart', down, { passive: false });
+  window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, { passive: false });
+  window.addEventListener('mouseup', up); window.addEventListener('touchend', up);
+}
 // hover a plate to read the curve: what a buyer pays at any point of supply
 function scrub(el, c, W, H) {
   if (!el) return; const pad = 14, lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
@@ -234,18 +284,21 @@ function home() {
   const num = (v, k) => `<div><b>${v}</b><span>${k}</span></div>`;
   app.innerHTML = `<div class="page">
   <section class="top5">
-    <div><h1>Curves</h1><p>Every coin here trades on a bonding curve its creator drew — 16 points, one Meteora config, fixed for good.</p></div>
-    <div class="nums">${num(T.coins, 'drawn')}${num(Number(T.volume || 0).toFixed(1), 'SOL traded')}${num(T.trades || 0, 'trades')}${num(T.graduated, 'graduated')}<a class="btn pri" href="/draw">Draw a curve</a></div>
+    <h1>Curves</h1>
+    <div class="nums">${num(T.coins, 'drawn')}${num(Number(T.volume || 0).toFixed(1), 'SOL traded')}${num(T.trades || 0, 'trades')}${num(T.graduated, 'graduated')}</div>
   </section>
-  ${spot ? `<section class="spot">
-    <a class="spot-l" href="/c/${spot.mint}">
+  <section class="spot">
+    ${spot ? `<a class="spot-l" href="/c/${spot.mint}">
       <div class="spot-h"><div class="lg">${coinIcon(spot)}</div><div><span class="eyebrow">${spot.volume_sol ? 'Most traded' : 'Newest'}</span><b>${esc(spot.name)} <span>$${esc(spot.ticker)}</span></b></div>
         <div class="spot-n"><b>${mcapOf(spot).toFixed(1)} SOL</b><span>${((spot.sold_pct || 0) * 100).toFixed(1)}% of curve sold · ${Number(spot.volume_sol || 0).toFixed(2)} SOL volume</span></div></div>
-      <div class="spot-c">${plate(spot, 840, 200)}</div></a>
-    <div class="spot-r"><span class="eyebrow">Just drawn</span>
-      ${S.coins.slice(0, 6).map(c => `<a href="/c/${c.mint}" class="row"><span class="g">${glyph(c.points, 34, 18)}</span><b>$${esc(c.ticker)}</b><span class="m">${mcapOf(c).toFixed(1)}</span><span class="a">${ago(c.created_at)}</span></a>`).join('')}
+      <div class="spot-c">${plate(spot, 840, 200)}</div></a>` : '<div class="spot-l empty"><b>No curves yet.</b>The first one drawn shows up here.</div>'}
+    <div class="pad">
+      <div class="pad-h"><span class="eyebrow">Sketch a curve</span><span class="pad-n" id="padn">16 points</span></div>
+      <div class="pad-c" id="pad"><svg viewBox="0 0 300 190" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">draw here</span></div>
+      <p>Every coin on SPL-16 trades on a curve like this — drawn by its creator, held at 16 points, written to Meteora and never edited.</p>
+      <a class="btn pri wide" id="padgo" href="/draw">Draw a curve</a>
     </div>
-  </section>` : ''}
+  </section>
   <div class="bar5">
     <div class="tabs" id="sort">${[['mcap', 'Market cap'], ['recent', 'Newest'], ['volume', 'Volume'], ['progress', 'Closest to graduation']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div class="shp" id="shape"><button data-s="" class="${SHAPE ? '' : 'on'}">All</button>${shapes.map(k => `<button data-s="${k}" class="${SHAPE === k ? 'on' : ''}" title="${k}">${glyph(PRESETS[k], 26, 14)}</button>`).join('')}</div>
@@ -258,6 +311,7 @@ function home() {
     $('#cgrid').innerHTML = xs.length ? xs.map(coinCard).join('') : `<div class="card empty" style="grid-column:1/-1"><b>${S.coins.length ? 'Nothing matches.' : 'No coins yet.'}</b><a href="/draw">Draw one →</a></div>`;
   };
   if (spot) scrub($('.spot-c'), spot, 840, 200);
+  sketchPad();
   $('#q').oninput = e => { QRY = e.target.value; paint(); };
   $('#sort').onclick = e => { const k = e.target.closest('button')?.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
   $('#shape').onclick = e => { const b = e.target.closest('button'); if (!b) return; SHAPE = b.dataset.s; document.querySelectorAll('#shape button').forEach(x => x.classList.toggle('on', x === b)); paint(); };
@@ -279,7 +333,8 @@ function drawPage() {
       ].map(([n, t, p, art]) => `<div class="fl"><div class="fa">${art}</div><span class="n">${n}</span><b>${t}</b><p>${p}</p></div>`).join('')}
     </div>
   </section></div>`;
-  mountCanvas($('#labroot'));
+  const ctl = mountCanvas($('#labroot'));
+  try { const sk = JSON.parse(sessionStorage.getItem('sketch') || 'null'); if (sk && sk.length === N) { sessionStorage.removeItem('sketch'); $('#cv').classList.add('settle'); ctl.fromPoints(sk); } } catch {}
 }
 // small diagrams for the five steps
 function flowArt(k) {
@@ -321,7 +376,7 @@ async function coinPage(mint) {
     <aside>
       <div class="card"><div class="sec" id="stats"></div></div>
       <div class="card" style="margin-top:20px"><div class="ch"><h2>The curve <span class="sub">as drawn</span></h2><span class="rule"><i></i>immutable</span></div>
-        <div class="spec2 one"><div><span>to graduate</span><b>${sol(c.to_graduate_sol, 1)}</b></div><div><span>launch → graduation mcap</span><b>${c.start_mcap_sol} → ${c.grad_mcap_sol} SOL</b></div><div><span>sniper tax</span><b>${c.tax_start_bps ? `${c.tax_start_bps / 100}% → 1% · 10 min` : 'none'}</b></div><div><span>config</span><b>${real ? `<a href="https://solscan.io/account/${c.config}" target="_blank" rel="noreferrer">${short(c.config)}</a>` : '—'}</b></div></div>
+        <div class="spec2 one"><div><span>to graduate</span><b>${sol(c.to_graduate_sol, 1)}</b></div><div><span>launch → graduation mcap</span><b>${c.start_mcap_sol} → ${c.grad_mcap_sol} SOL</b></div><div><span>sniper tax</span><b>${c.tax_start_bps ? (() => { const t = c.tax_json ? JSON.parse(c.tax_json) : { mode: 'exp', seconds: 600 }; return `95% → 1% · ${t.mode === 'linear' ? 'linear' : 'exponential'} · ${mmss(t.seconds)}`; })() : 'none'}</b></div><div><span>config</span><b>${real ? `<a href="https://solscan.io/account/${c.config}" target="_blank" rel="noreferrer">${short(c.config)}</a>` : '—'}</b></div></div>
         ${c.logo ? `<div class="sec" style="border-top:1px solid var(--line);display:flex;gap:14px;align-items:center"><div class="ic sm">${iconSvg(c.points)}</div><div class="note" style="margin:0">The drawing, as an icon. It's also stored in the token metadata.</div></div>` : ''}</div>
       <div class="card" style="margin-top:20px"><div class="sec"><h3><i data-lucide="link"></i>Addresses</h3><div class="addr">${c.mint}</div><p class="note">mint</p><div class="addr">${esc(c.pool)}</div><p class="note">pool</p>${real ? `<p class="note"><a href="https://solscan.io/tx/${c.launch_sig}" target="_blank" rel="noreferrer">launch transaction ↗</a></p>` : ''}</div></div>
     </aside>
@@ -433,9 +488,9 @@ async function standard() {
     </div>${block('S-03', 'THE MATH')}</section>
 
     <section class="sheet" id="tax"><div class="sh-in">
-      <h2>Sniper tax</h2><p class="lede">Optional per coin. Uses DBC's exponential fee scheduler on the base fee.</p>
+      <h2>Sniper tax</h2><p class="lede">Optional per coin. The creator draws the decay; it's fitted to DBC's fee scheduler on the base fee.</p>
       <div class="sh-grid r"><div class="anat">${taxSvg()}</div>
-        <div class="notes"><table class="t2"><tr><td>start</td><td>95% (9,500 bps)</td></tr><tr><td>floor</td><td>1% (100 bps)</td></tr><tr><td>steps</td><td>60, every 10 s</td></tr><tr><td>duration</td><td>600 s</td></tr><tr><td>at 1 min</td><td>${taxAt(60).toFixed(1)}%</td></tr><tr><td>at 3 min</td><td>${taxAt(180).toFixed(1)}%</td></tr><tr><td>at 5 min</td><td>${taxAt(300).toFixed(1)}%</td></tr></table>
+        <div class="notes"><table class="t2"><tr><td>start</td><td>95% (9,500 bps)</td></tr><tr><td>floor</td><td>1% (100 bps)</td></tr><tr><td>schedule</td><td>drawn by the creator, fitted to linear or exponential</td></tr><tr><td>duration</td><td>1–20 min, in 10 s steps</td></tr><tr><td>default</td><td>exponential · 10 min</td></tr><tr><td>at 1 · 3 · 5 min</td><td>${taxAt(60).toFixed(1)}% · ${taxAt(180).toFixed(1)}% · ${taxAt(300).toFixed(1)}% (default)</td></tr></table>
         <p>The fee is charged in SOL and goes to the pool's fee accounts like any trading fee. The scheduler can only decrease the fee, so a coin can't raise its tax after launch. Coins without the tax trade at a flat 1% from the first block.</p></div></div>
     </div>${block('S-04', 'SNIPER TAX')}</section>
 
@@ -527,5 +582,5 @@ async function render() {
   if (window.lucide) lucide.createIcons();
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
-fetch('/swan.svg').then(r => r.text()).then(t => { const inner = t.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''); document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="swan" viewBox="0 0 1000 561">${inner}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 1000 561"><use href="#swan"/></svg>`; const m2 = $('#mark2'); if (m2) m2.innerHTML = $('#mark').innerHTML; const b = $('.nb-brand'); const ink = () => { b.classList.remove('ink'); void b.offsetWidth; b.classList.add('ink'); }; ink(); b.addEventListener('mouseenter', ink); });
+{ const inner = '<circle cx="14" cy="14" r="3.6" class="d"/><circle cx="38" cy="14" r="3.6" class="d"/><circle cx="62" cy="14" r="3.6" class="d"/><circle cx="14" cy="38" r="3.6" class="d"/><circle cx="38" cy="38" r="3.6" class="d"/><circle cx="62" cy="38" r="3.6" class="d"/><circle cx="86" cy="38" r="3.6" class="d"/><circle cx="14" cy="62" r="3.6" class="d"/><circle cx="38" cy="62" r="3.6" class="d"/><circle cx="62" cy="62" r="3.6" class="d"/><circle cx="86" cy="62" r="3.6" class="d"/><circle cx="38" cy="86" r="3.6" class="d"/><circle cx="62" cy="86" r="3.6" class="d"/><circle cx="86" cy="86" r="3.6" class="d"/><path class="s" d="M14,86 C46,86 60,80 69,62 C77,46 80,30 86,14" fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="round" pathLength="1"/><circle class="e" cx="14" cy="86" r="6.5"/><circle class="e e2" cx="86" cy="14" r="6.5"/>'; document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute"><symbol id="m16" viewBox="0 0 100 100">${inner.replace(/ pathLength="1"/, '')}</symbol></svg>`); $('#mark').innerHTML = `<svg viewBox="0 0 100 100">${inner}</svg>`; const m2 = $('#mark2'); if (m2) m2.innerHTML = `<svg viewBox="0 0 100 100"><use href="#m16"/></svg>`; const b = $('.nb-brand'); const ink = () => { b.classList.remove('ink'); void b.offsetWidth; b.classList.add('ink'); }; ink(); b.addEventListener('mouseenter', ink); }
 render();
