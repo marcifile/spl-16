@@ -128,6 +128,9 @@ function record({ mint, pool, config, name, ticker, description, image, logo, ur
 try { db.exec('alter table coins add column tax_json text'); } catch {}
 try { db.exec('alter table coins add column twitter text'); } catch {}
 try { db.exec('alter table coins add column opts_json text'); } catch {}
+// Coins removed from the site (duplicate test launches). Runs on every start; idempotent.
+const REMOVED = ['QSUasoYpvc2T6VXhLbpNsg28WxEzPU61vC8yqjqeCcJ', '8z4mj9L851KFtxxmZ93do7o5m5pEgWbsrzrKyaqnHSJp', 'HNJFPPUCCk2RtpcNBHpYNCEqPBjhFUZQgiBtbR9ViHb9', '4dcs7prUKyPCekWAGmxtgiwtQYL2YsBAx57oeWmhfwZP'];
+try { const del = db.transaction(ms => { for (const m of ms) { db.prepare('delete from coins where mint=?').run(m); db.prepare('delete from trades where mint=?').run(m); } }); del(REMOVED); } catch (e) { console.error('remove', e.message); }
 
 // ---- live loop: every 30s refresh every pool that hasn't graduated (stats + new trades) ----
 async function loop() {
