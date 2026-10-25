@@ -289,20 +289,21 @@ function home() {
   </section>
   <section class="spot">
     <div class="how5">
-      <span class="eyebrow">How SPL-16 works</span>
-      <h2>A launchpad where the creator sets the price curve.</h2>
-      <ol>
-        <li><b>Draw</b><p>Sketch left to right. Your line is held at 16 points — the price at 0%, 6.7%, 13.3% … 100% of the supply sold.</p></li>
-        <li><b>Tax, if you want one</b><p>Buys can pay up to 95% at open, falling to 1% on a schedule you draw. It can only go down.</p></li>
-        <li><b>Launch</b><p>One signature creates the coin's own Meteora DBC config and pool. Nobody can edit the curve after — including us.</p></li>
-        <li><b>Graduate</b><p>Every buy walks up your curve. At its SOL threshold the pool moves to Meteora DAMM v2, liquidity locked for good.</p></li>
-      </ol>
-      <div class="facts5"><span>1B supply · SPL token</span><span>1% fee · half to the creator</span><span>Mint revoked</span><a href="/standard">Read the standard →</a></div>
+      <span class="eyebrow">Per-coin bonding curves · Meteora DBC</span>
+      <h2>Price discovery is a design decision now.</h2>
+      <p class="lead5">Most launchpads run every coin on the same curve. SPL-16 compiles a new one per launch — 16 price points, 15 segments, written to its own config and enforced by Meteora's program.</p>
+      <div class="figs">
+        <div><b>16<small>pts</small></b><span>Shape the market</span><p>Flat runs for wide distribution, walls to slow snipers, steps for milestones.</p></div>
+        <div><b>1/15</b><span>Equal-supply segments</span><p>Each segment sells the same share of supply. What's drawn is what buyers pay.</p></div>
+        <div><b>95→1<small>%</small></b><span>Drawn sniper tax</span><p>A decaying buy fee fitted to Meteora's scheduler. It can only fall.</p></div>
+        <div><b>0<small>keys</small></b><span>Nothing to pull</span><p>Config immutable, mint revoked, LP locked for good at graduation.</p></div>
+      </div>
+      <div class="facts5"><span>SPL token · 1B supply</span><span>1% fee · 50% to the creator</span><span>Graduates to DAMM v2</span><a href="/standard">The standard →</a></div>
     </div>
     <div class="pad">
       <div class="pad-h"><span class="eyebrow">Sketch a curve</span><span class="pad-n" id="padn">16 points</span></div>
       <div class="pad-c" id="pad"><svg viewBox="0 0 300 190" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">draw here</span></div>
-      <p>Every coin on SPL-16 trades on a curve like this — drawn by its creator, held at 16 points, written to Meteora and never edited.</p>
+      <p>Any line compiles: 16 sqrt-prices, a liquidity weight per segment and a graduation threshold — ready to launch as-is.</p>
       <a class="btn pri wide" id="padgo" href="/draw">Draw a curve</a>
     </div>
   </section>
