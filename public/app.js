@@ -288,10 +288,14 @@ function home() {
     <div class="nums">${num(T.coins, 'drawn')}${num(Number(T.volume || 0).toFixed(1), 'SOL traded')}${num(T.trades || 0, 'trades')}${num(T.graduated, 'graduated')}</div>
   </section>
   <section class="spot">
-    <div class="how5">
-      <span class="eyebrow">Per-coin bonding curves · Meteora DBC</span>
-      <h2>Price discovery is a design decision now.</h2>
-      <p class="lead5">Most launchpads run every coin on the same curve. SPL-16 compiles a new one per launch — 16 price points, 15 segments, written to its own config and enforced by Meteora's program.</p>
+    <div class="how5 brand">
+      <div class="ruler">${Array.from({ length: 16 }, (_, i) => `<span>${i + 1}</span>`).join('')}</div>
+      <svg class="bigS" viewBox="0 0 100 100"><use href="#m16"/></svg>
+      <div class="bx">
+        <span class="eyebrow">SPL-16 · the spline standard</span>
+        <h2>Price discovery is a design decision now.</h2>
+        <p class="lead5">Most launchpads run every coin on the same curve. SPL-16 compiles a new one per launch — 16 price points, 15 segments, written to its own Meteora config and enforced on chain.</p>
+      </div>
       <div class="figs">
         <div><b>16<small>pts</small></b><span>Shape the market</span><p>Flat runs for wide distribution, walls to slow snipers, steps for milestones.</p></div>
         <div><b>1/15</b><span>Equal-supply segments</span><p>Each segment sells the same share of supply. What's drawn is what buyers pay.</p></div>

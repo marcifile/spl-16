@@ -574,3 +574,32 @@ body.v5{--bg:#f3f1eb;--paper:#fbfaf6;--line:#e4e1d8;--line2:#d2cfc5;display:flex
 .figs span{display:block;font-size:12.5px;font-weight:600;margin:10px 0 4px}
 .figs p{margin:0;font-size:12px;line-height:1.5;color:var(--ink2)}
 @media (max-width:900px){.figs{grid-template-columns:1fr 1fr}.figs div{border:0}}
+/* ===== brand: ink, paper, vermilion ===== */
+body.v5{--brand:#d4471f;--brand-ink:#b33a17}
+.how5.brand{position:relative;overflow:hidden;background:#141416;border-color:#141416;color:#f1eee6;padding:34px 30px 22px}
+.how5.brand .ruler{position:absolute;left:30px;right:30px;top:12px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:#5d5c58}
+.how5.brand .ruler span{position:relative}.how5.brand .ruler span::after{content:"";position:absolute;left:50%;top:13px;height:5px;border-left:1px solid #3b3a37}
+.bigS{position:absolute;right:-30px;top:-10px;width:330px;height:330px;color:#f1eee6;opacity:.08;pointer-events:none}
+.bigS{animation:pen 1.6s .2s cubic-bezier(.5,.1,.3,1) backwards}
+.bx{position:relative;max-width:640px}
+.how5.brand .eyebrow{color:var(--brand)}
+.how5.brand h2{font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.05;letter-spacing:-.025em;margin:10px 0 12px;color:#f6f3ec}
+.how5.brand .lead5{color:#a9a69e}
+.how5.brand .figs{border-top-color:#2c2b29;position:relative}
+.how5.brand .figs div{border-right-color:#2c2b29}
+.how5.brand .figs b{color:var(--brand)}.how5.brand .figs b small{color:#77756f}
+.how5.brand .figs span{color:#f1eee6}.how5.brand .figs p{color:#8f8c85}
+.how5.brand .facts5{border-top-color:#2c2b29;color:#77756f}.how5.brand .facts5 a{color:#f1eee6}
+/* brand accents across the app */
+.nb-brand .mark{color:var(--brand)}
+.mark.sm{color:var(--brand)}
+.tabs button.on{border-color:var(--brand)}
+.nb-nav a.on{box-shadow:0 1px 2px rgba(0,0,0,.07),inset 0 -2px 0 var(--brand)}
+.pc-bar i,.bar i{background:var(--brand)}
+#padgo,.btn.pri{background:#141416}
+.pad .eyebrow,.pad-n{color:var(--brand)}
+.spot{grid-template-columns:1fr 330px}
+.pc:hover{border-color:var(--brand)}
+.step .sh b{background:var(--brand)}
+.how5.brand{padding-top:44px}
+#padd i{background:var(--brand)}
