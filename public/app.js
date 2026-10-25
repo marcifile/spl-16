@@ -18,7 +18,7 @@ function curvePath(points, W, H, pad) {
 }
 const glyph = (points, w = 40, h = 24) => `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><path d="${curvePath(points, w, h, 3).d}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const iconSvg = points => { const s = 200, { d, pts } = curvePath(points, s, s, 32), e = pts[pts.length - 1]; return `<svg viewBox="0 0 ${s} ${s}"><rect width="${s}" height="${s}" fill="#f4f2ec"/><path d="${d}" fill="none" stroke="#111114" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${e[0].toFixed(1)}" cy="${e[1].toFixed(1)}" r="5.6" fill="#f4f2ec"/></svg>`; };
-const coinIcon = c => c.logo ? `<img src="${esc(c.logo)}" alt="">` : `<span class="mono-ic">${esc((c.ticker || '?')[0])}</span>`;
+const coinIcon = c => c.logo ? `<img src="${esc(c.logo)}" alt="">` : `<span class="mono-ic">${esc((c.ticker || '?')[0])}<i></i></span>`;
 // a spline weight ("duck"): lead body, brass prong that holds the strip at the point
 const DUCK = `<svg viewBox="0 0 44 30" class="duck-svg"><path d="M22 2 L22 9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M4 26 C4 15 13 9 23 9 C31 9 37 13 40 18 C41.5 21 40 26 36 26 Z" fill="currentColor"/><circle cx="22" cy="2.6" r="2.2" fill="currentColor"/></svg>`;
 // Meteora exponential fee scheduler, as configured: 95% → 1% in 60 steps over 600s
@@ -270,6 +270,7 @@ function coinCard(c) {
     <div class="pc-n"><b>${mcapOf(c).toFixed(1)}</b><span>SOL mcap</span></div>
     ${optTags(c) ? `<div class="pc-tags">${optTags(c)}</div>` : ''}
     <div class="pc-bar"><i style="width:${Math.max(pct, 1)}%"></i></div>
+    <svg class="pc-s" viewBox="0 0 100 100"><use href="#m16"/></svg>
     <div class="pc-f"><span>${c.migrated ? 'graduated' : pct + '% to graduation'}</span><span>${esc(c.shape)}${c.trades ? ' · ' + c.trades + ' trades' : ''}</span></div></a>`;
 }
 let SORT = 'mcap', SHAPE = '', QRY = '';
@@ -649,7 +650,7 @@ function lifeSvg() {
     ${arr(684, 160, 726, 160, 'T reached')}
     ${box(730, 110, 160, 'DAMM v2 pool', ['1% pool fee', 'LP locked forever', '50 / 50 positions'], '#1f8a5a')}</svg>`;
 }
-function notFound() { app.innerHTML = `<div class="wrap"><div class="card empty"><b>Nothing here.</b><a href="/">Back</a></div></div>`; }
+function notFound() { app.innerHTML = `<div class="wrap"><div class="card empty"><svg class="e-s" viewBox="0 0 100 100"><use href="#m16"/></svg><b>Nothing here.</b><a href="/">Back to curves</a></div></div>`; }
 
 const CRUMB = { '/': 'Home', '/coins': 'Home', '/draw': 'Draw', '/lab': 'Draw', '/mine': 'Yours', '/standard': 'Standard' };
 async function render() {

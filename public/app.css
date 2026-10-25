@@ -647,3 +647,30 @@ body.v5{--brand:#d4471f;--brand-ink:#b33a17}
 .mg p{margin:5px 0 0;font-size:13px;line-height:1.55;color:var(--ink2)}
 .mf{display:flex;gap:10px;margin-top:24px}
 @media (max-width:700px){.mg{grid-template-columns:1fr}}
+/* ===== mobile fixes ===== */
+@media (max-width:900px){
+  .two{display:flex;flex-direction:column;gap:20px}.two>aside{display:contents}.two>aside>.card{margin-top:0!important}.two .trade{order:-1}
+  .coinhead{grid-template-columns:64px 1fr;gap:14px;padding:16px}.coinhead .ic{width:64px;height:64px}.coinhead h1{font-size:28px}
+  .coinhead .acts{grid-column:1/-1;flex-direction:row;flex-wrap:wrap}.coinhead .acts .btn{padding:7px 10px;font-size:12px}
+  .tt2 th:nth-child(4),.tt2 td:nth-child(4),.tt2 th:nth-child(5),.tt2 td:nth-child(5){display:none}.tt2 td,.tt2 th{padding:8px 10px}
+  .std-wrap{display:block}.std-body{min-width:0}.sheet{margin:0 4px 34px}.sh-in{padding:20px 16px}
+  .eq>code{white-space:normal;overflow-wrap:anywhere;font-size:13px}.tb{flex-wrap:wrap}.tb div{min-width:0;flex:1 1 40%}
+  .legend3,.sheet#life .legend3{grid-template-columns:1fr}.std-hero h1{font-size:36px}
+  .main .wrap,.v5 .wrap{padding:16px 12px}
+}
+.std-body,.two>div{min-width:0}
+/* ===== the mark, quietly everywhere ===== */
+::selection{background:rgba(212,71,31,.18)}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.nb-nav a.on{box-shadow:0 1px 2px rgba(0,0,0,.07);position:relative}
+.nb-nav a.on::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--brand)}
+.mono-ic{position:relative}.mono-ic i{position:absolute;right:16%;bottom:16%;width:12%;height:12%;min-width:3px;min-height:3px;border-radius:50%;background:var(--brand)}
+.pc{position:relative}.pc-s{position:absolute;right:-10px;bottom:-12px;width:78px;height:78px;color:var(--ink);opacity:.035;pointer-events:none}
+.pc:hover .pc-s{opacity:.07}
+.e-s{display:block;width:64px;height:64px;margin:0 auto 12px;color:var(--ink);opacity:.15}
+.boot{display:grid;place-items:center;min-height:60vh}.boot svg{width:56px;height:56px;color:#141416}
+.boot path{stroke-dasharray:120;stroke-dashoffset:120;animation:bootdraw 1s ease-in-out infinite alternate}
+@keyframes bootdraw{to{stroke-dashoffset:0}}
+.nf .mark.sm{width:18px;height:18px}
+@media (max-width:900px){.chartbox{min-height:0}}
+.mono-ic i{right:9%;bottom:9%;width:9%;height:9%}

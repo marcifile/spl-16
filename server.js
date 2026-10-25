@@ -143,4 +143,6 @@ if (!DRY) { setInterval(loop, 30_000); setTimeout(loop, 3_000); }
 for (const p of ['/lab', '/draw', '/c/:m', '/standard', '/coins', '/mine']) app.get(p, (req, res) => res.sendFile(path.join(ROOT, 'public', 'index.html')));
 
 const port = Number(process.env.PORT || 8792);
+// anything else is a client route; the app renders its own not-found page
+app.get(/^\/(?!api\/|a\/).*/, (req, res) => res.status(req.path.includes('.') ? 404 : 200).sendFile(path.join(ROOT, 'public', 'index.html')));
 app.listen(port, () => console.log(`spline on http://localhost:${port} · ${DRY ? 'DRY RUN' : 'live'} · rpc ${P.rpcState().using} · house ${process.env.HOUSE_WALLET ? 'set' : 'MISSING'}`));
