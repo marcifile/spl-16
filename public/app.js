@@ -314,7 +314,7 @@ function home() {
   const num = (v, k) => `<div><b>${v}</b><span>${k}</span></div>`;
   app.innerHTML = `<div class="page">
   <section class="hstrip">
-    <div class="st-l"><h1>Draw the curve your coin trades on.</h1><p>${T.coins} coins drawn · ${Number(T.volume || 0).toFixed(1)} SOL traded</p></div>
+    <div class="st-l"><h1>Draw the curve your coin trades on.</h1><p>${T.coins} coins drawn · ${Number(T.volume || 0).toFixed(1)} SOL traded · <button class="why" id="why">Why it's different</button></p></div>
     <div class="pad-c" id="pad"><svg viewBox="0 0 600 110" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">sketch one here</span></div>
     <a class="btn pri" id="padgo" href="/draw">Draw a curve</a>
   </section>
@@ -330,6 +330,22 @@ function home() {
     $('#cgrid').innerHTML = xs.length ? xs.map(coinCard).join('') : `<div class="card empty" style="grid-column:1/-1"><b>${S.coins.length ? 'Nothing matches.' : 'No coins yet.'}</b><a href="/draw">Draw one →</a></div>`;
   };
   sketchPad();
+  $('#why').onclick = () => {
+    document.body.insertAdjacentHTML('beforeend', `<div class="modal" id="modal"><div class="mbox">
+      <button class="mx" id="mx" aria-label="Close">×</button>
+      <svg class="mS" viewBox="0 0 100 100"><use href="#m16"/></svg>
+      <h2>Your coin's market, by design.</h2>
+      <p class="ml">On most launchpads every coin trades on the same bonding curve — same price path, same snipers, same outcome. SPL-16 lets the creator set the rules, and Meteora's program enforces them.</p>
+      <div class="mg">
+        <div><b>Custom curve</b><p>Draw any shape, or start from standard, cliff, stairs, ramp, hockey or fat. It compiles to 16 sqrt-prices and its own DBC config — not a preset with a different name.</p></div>
+        <div><b>Sniper tax you draw</b><p>Buys can pay up to 95% at open, decaying to 1% on the schedule you draw — fast, slow, linear or exponential. The scheduler can only lower it.</p></div>
+        <div><b>Launch options</b><p>Dev buy in the launch transaction, the pool fee after graduation, and a volatility fee — all shown on the coin so buyers see the rules up front.</p></div>
+        <div><b>Nothing to pull</b><p>The config is immutable, the mint is revoked, and liquidity locks for good when the coin graduates to DAMM v2. Creators earn 50% of trading fees.</p></div>
+      </div>
+      <div class="mf"><a class="btn pri" href="/draw">Draw a curve</a><a class="btn" href="/standard">Read the standard</a></div>
+    </div></div>`);
+    const close = () => $('#modal')?.remove(); $('#mx').onclick = close; $('#modal').onclick = e => { if (e.target.id === 'modal') close(); }; document.addEventListener('keydown', function k(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', k); } });
+  };
   $('#q').oninput = e => { QRY = e.target.value; paint(); };
   $('#sort').onclick = e => { const k = e.target.closest('button')?.dataset.k; if (!k) return; SORT = k; document.querySelectorAll('#sort button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); paint(); };
   $('#shape').onchange = e => { SHAPE = e.target.value; paint(); };
