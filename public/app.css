@@ -603,3 +603,12 @@ body.v5{--brand:#d4471f;--brand-ink:#b33a17}
 .step .sh b{background:var(--brand)}
 .how5.brand{padding-top:44px}
 #padd i{background:var(--brand)}
+/* coins first */
+.strip{display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;padding:6px 0 26px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.st-l h1{font-family:var(--serif);font-weight:500;font-size:26px;letter-spacing:-.02em;line-height:1.1;margin:0 0 4px;max-width:15ch}
+.st-l p{margin:0;font-size:12.5px;color:var(--ink3)}
+.strip .pad-c{height:96px}
+.strip #padgo{white-space:nowrap}
+.v5 .page{padding-top:30px}
+.pgrid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+@media (max-width:900px){.strip{grid-template-columns:1fr}}

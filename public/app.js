@@ -244,7 +244,7 @@ function coinCard(c) {
 }
 let SORT = 'mcap', SHAPE = '', QRY = '';
 function sketchPad() {
-  const el = $('#pad'), W = 300, H = 190, P = 14; let raw = [], on = false;
+  const el = $('#pad'), W = 600, H = 110, P = 10; let raw = [], on = false;
   $('#padg').innerHTML = Array.from({ length: N }, (_, i) => { const x = P + (W - 2 * P) * i / (N - 1); return `<line x1="${x}" x2="${x}" y1="${P}" y2="${H - P}"/>`; }).join('') + `<line class="b" x1="${P}" x2="${W - P}" y1="${H - P}" y2="${H - P}"/>`;
   const pt = e => { const r = el.getBoundingClientRect(), t = e.touches ? e.touches[0] : e; return { x: (t.clientX - r.left) / r.width * W, y: Math.max(P, Math.min(H - P, (t.clientY - r.top) / r.height * H)) }; };
   const down = e => { on = true; raw = [pt(e)]; $('#padd').innerHTML = ''; $('#padl').setAttribute('d', ''); $('#padhint').classList.add('off'); el.classList.remove('done'); e.preventDefault(); };
@@ -259,7 +259,7 @@ function sketchPad() {
     $('#padd').innerHTML = pts.map((q, i) => `<i style="left:${q[0] / W * 100}%;top:${q[1] / H * 100}%;--i:${i}"></i>`).join('');
     el.classList.remove('done'); void el.offsetWidth; el.classList.add('done');
     try { sessionStorage.setItem('sketch', JSON.stringify(v)); } catch {}
-    $('#padn').textContent = 'held at 16 points'; $('#padgo').textContent = 'Continue with this curve →';
+    $('#padgo').textContent = 'Launch this curve';
   };
   el.addEventListener('mousedown', down); el.addEventListener('touchstart', down, { passive: false });
   window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, { passive: false });
@@ -283,33 +283,10 @@ function home() {
   const shapes = Object.keys(PRESETS);
   const num = (v, k) => `<div><b>${v}</b><span>${k}</span></div>`;
   app.innerHTML = `<div class="page">
-  <section class="top5">
-    <h1>Curves</h1>
-    <div class="nums">${num(T.coins, 'drawn')}${num(Number(T.volume || 0).toFixed(1), 'SOL traded')}${num(T.trades || 0, 'trades')}${num(T.graduated, 'graduated')}</div>
-  </section>
-  <section class="spot">
-    <div class="how5 brand">
-      <div class="ruler">${Array.from({ length: 16 }, (_, i) => `<span>${i + 1}</span>`).join('')}</div>
-      <svg class="bigS" viewBox="0 0 100 100"><use href="#m16"/></svg>
-      <div class="bx">
-        <span class="eyebrow">SPL-16 · the spline standard</span>
-        <h2>Price discovery is a design decision now.</h2>
-        <p class="lead5">Most launchpads run every coin on the same curve. SPL-16 compiles a new one per launch — 16 price points, 15 segments, written to its own Meteora config and enforced on chain.</p>
-      </div>
-      <div class="figs">
-        <div><b>16<small>pts</small></b><span>Shape the market</span><p>Flat runs for wide distribution, walls to slow snipers, steps for milestones.</p></div>
-        <div><b>1/15</b><span>Equal-supply segments</span><p>Each segment sells the same share of supply. What's drawn is what buyers pay.</p></div>
-        <div><b>95→1<small>%</small></b><span>Drawn sniper tax</span><p>A decaying buy fee fitted to Meteora's scheduler. It can only fall.</p></div>
-        <div><b>0<small>keys</small></b><span>Nothing to pull</span><p>Config immutable, mint revoked, LP locked for good at graduation.</p></div>
-      </div>
-      <div class="facts5"><span>SPL token · 1B supply</span><span>1% fee · 50% to the creator</span><span>Graduates to DAMM v2</span><a href="/standard">The standard →</a></div>
-    </div>
-    <div class="pad">
-      <div class="pad-h"><span class="eyebrow">Sketch a curve</span><span class="pad-n" id="padn">16 points</span></div>
-      <div class="pad-c" id="pad"><svg viewBox="0 0 300 190" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">draw here</span></div>
-      <p>Any line compiles: 16 sqrt-prices, a liquidity weight per segment and a graduation threshold — ready to launch as-is.</p>
-      <a class="btn pri wide" id="padgo" href="/draw">Draw a curve</a>
-    </div>
+  <section class="strip">
+    <div class="st-l"><h1>Draw the curve your coin trades on.</h1><p>${T.coins} coins drawn · ${Number(T.volume || 0).toFixed(1)} SOL traded</p></div>
+    <div class="pad-c" id="pad"><svg viewBox="0 0 600 110" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">sketch one here</span></div>
+    <a class="btn pri" id="padgo" href="/draw">Draw a curve</a>
   </section>
   <div class="bar5">
     <div class="tabs" id="sort">${[['mcap', 'Market cap'], ['recent', 'Newest'], ['volume', 'Volume'], ['progress', 'Closest to graduation']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
