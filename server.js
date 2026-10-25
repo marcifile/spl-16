@@ -57,7 +57,7 @@ app.get('/api/presets', (req, res) => res.json(Object.fromEntries(Object.keys(C.
 
 // live quote for a drawing (real DBC math)
 app.post('/api/quote', (req, res) => {
-  try { res.json(C.quote({ points: req.body.points, taxStartBps: Number(req.body.taxStartBps) || 0, tax: req.body.tax || {} })); }
+  try { res.json(C.quote({ points: req.body.points, taxStartBps: Number(req.body.taxStartBps) || 0, tax: req.body.tax || {}, opts: req.body.opts || {} })); }
   catch (e) { res.status(400).json({ error: e.message }); }
 });
 function safeQuote(points, tax) { try { return C.quote({ points, taxStartBps: tax }); } catch { return null; } }
@@ -76,14 +76,15 @@ app.post('/api/preview-icon', (req, res) => { try { res.type('image/svg+xml').se
 // ---- launch: 1) build unsigned tx(s) for the creator's wallet, 2) creator signs+sends in browser, 3) we confirm & record ----
 app.post('/api/launch/prepare', async (req, res) => {
   try {
-    const { creator, name, ticker, description = '', points, taxStartBps = 0, tax = {}, firstBuySol = 0, logo = null, twitter = '' } = req.body;
+    const { creator, name, ticker, description = '', points, taxStartBps = 0, tax = {}, firstBuySol = 0, logo = null, twitter = '', opts = {} } = req.body;
     const tw = String(twitter || '').trim().replace(/^@/, ''); const twUrl = !tw ? null : /^https?:\/\/(www\.)?(x|twitter)\.com\/[A-Za-z0-9_/.-]+$/.test(tw) ? tw : /^[A-Za-z0-9_]{1,15}$/.test(tw) ? `https://x.com/${tw}` : null;
     if (tw && !twUrl) return res.status(400).json({ error: 'X link should be a handle or an x.com link' });
     const mintKp = Keypair.generate(); const mintAddr = DRY ? crypto.randomBytes(32).toString('hex').slice(0, 44) : mintKp.publicKey.toBase58();
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(creator))) return res.status(400).json({ error: 'connect a wallet first' });
     const nm = String(name || '').trim().slice(0, 32), tk = String(ticker || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     if (nm.length < 1 || tk.length < 2) return res.status(400).json({ error: 'name and ticker (2–10 letters)' });
-    const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax }); // validates the curve
+    const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax, opts }); // validates the curve
+    const fb = Math.max(0, Math.min(50, Number(firstBuySol) || 0)); q.opts = { ...q.opts, devBuySol: fb };
     const stamp = `${tk.toLowerCase()}-${crypto.randomBytes(3).toString('hex')}`;
     let imageUrl, logoUrl = null;
     const curvePng = await iconPng(points, 512);
@@ -100,7 +101,7 @@ app.post('/api/launch/prepare', async (req, res) => {
       record({ mint, pool, config: 'dry', name: nm, ticker: tk, description, image: imageUrl, logo: logoUrl, uri, creator, points, taxStartBps, q, sig: 'dry', twitter: twUrl });
       return res.json({ dry: true, mint, pool });
     }
-    const built = await buildLaunchTx({ creator, name: nm, symbol: tk, uri, points, taxStartBps: Number(taxStartBps) || 0, tax, firstBuySol: Number(firstBuySol) || 0, baseMint: mintKp });
+    const built = await buildLaunchTx({ creator, name: nm, symbol: tk, uri, points, taxStartBps: Number(taxStartBps) || 0, tax, opts: q.opts, firstBuySol: fb, baseMint: mintKp });
     db.prepare('insert or replace into drafts (id, creator, points, tax_start_bps, name, ticker, created_at) values (?,?,?,?,?,?,?)').run(built.mint, creator, JSON.stringify(points), Number(taxStartBps) || 0, nm, tk, now());
     pending.set(built.mint, { ...built, twitter: twUrl, name: nm, ticker: tk, description, image: imageUrl, logo: logoUrl, uri, creator, points, taxStartBps: Number(taxStartBps) || 0, q });
     res.json({ txs: built.txs, mint: built.mint, pool: built.pool, config: built.config, quote: q, image: imageUrl });
@@ -122,9 +123,11 @@ function record({ mint, pool, config, name, ticker, description, image, logo, ur
     .run(mint, pool, config, name, ticker, description || '', image, logo || null, uri, creator, JSON.stringify(points), q.shape, Number(taxStartBps) || 0, q.toGraduateSol, q.startMcapSol, q.gradMcapSol, sig, now());
   if (q.tax) db.prepare('update coins set tax_json=? where mint=?').run(JSON.stringify(q.tax), mint);
   if (twitter) db.prepare('update coins set twitter=? where mint=?').run(twitter, mint);
+  if (q.opts) db.prepare('update coins set opts_json=? where mint=?').run(JSON.stringify(q.opts), mint);
 }
 try { db.exec('alter table coins add column tax_json text'); } catch {}
 try { db.exec('alter table coins add column twitter text'); } catch {}
+try { db.exec('alter table coins add column opts_json text'); } catch {}
 
 // ---- live loop: every 30s refresh every pool that hasn't graduated (stats + new trades) ----
 async function loop() {
