@@ -612,3 +612,4 @@ body.v5{--brand:#d4471f;--brand-ink:#b33a17}
 .v5 .page{padding-top:30px}
 .pgrid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
 @media (max-width:900px){.strip{grid-template-columns:1fr}}
+.nb-brand .mark,.mark.sm{color:#141416}.mark .w{fill:var(--brand)}.mark.sm{color:var(--ink3)}
