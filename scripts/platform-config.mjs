@@ -10,11 +10,13 @@ const bs58 = createRequire(import.meta.url)('bs58');
 const dec = (bs58.default || bs58).decode;
 
 const payer = Keypair.fromSecretKey(dec(process.env.HOUSE_SECRET));
-const house = new PublicKey(process.env.HOUSE_WALLET || payer.publicKey);
+const house = new PublicKey(process.env.FEE_CLAIMER || process.env.HOUSE_WALLET || payer.publicKey);
 const points = presetPoints('standard');
+const NOTAX = !!process.env.NO_TAX;
 const tax = { mode: 'exp', seconds: 600 };
-const { cfg } = configFor({ points, taxStartBps: 9500, tax, opts: {} });
-const q = quote({ points, taxStartBps: 9500, tax, opts: {} });
+const taxStartBps = NOTAX ? 0 : 9500;
+const { cfg } = configFor({ points, taxStartBps, tax, opts: {} });
+const q = quote({ points, taxStartBps, tax, opts: {} });
 const config = Keypair.generate();
 const tx = await P.dbc().partner.createConfig({ ...cfg, config: config.publicKey, feeClaimer: house, leftoverReceiver: house, quoteMint: new PublicKey('So11111111111111111111111111111111111111112'), payer: payer.publicKey });
 tx.feePayer = payer.publicKey; tx.recentBlockhash = (await P.connection().getLatestBlockhash()).blockhash;
