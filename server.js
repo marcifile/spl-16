@@ -10,6 +10,7 @@ import { iconSvg, iconPng, glyphSvg } from './lib/icon.js';
 import { putFile, putJson, assetsDir } from './lib/store.js';
 import * as L from './lib/live.js';
 import * as SW from './lib/swap.js';
+import * as R from './lib/recommend.js';
 import { Keypair } from '@solana/web3.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,14 @@ app.post('/api/swap', async (req, res) => {
 });
 app.get('/api/balance/:mint/:wallet', async (req, res) => {
   try { if (DRY) return res.json({ sol: 0, tokens: 0, dry: true }); res.json(await SW.balances(req.params)); } catch (e) { res.status(400).json({ error: e.message }); }
+});
+// curve recommendations from plain-language goals (model if configured, rules otherwise)
+const recHits = new Map();
+app.post('/api/recommend', async (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.ip; const now = Date.now(); const h = (recHits.get(ip) || []).filter(t => now - t < 60_000);
+  if (h.length >= 8) return res.status(429).json({ error: 'Too many requests — try again in a minute.' }); h.push(now); recHits.set(ip, h);
+  const prompt = String(req.body?.prompt || '').trim(); if (prompt.length < 3) return res.status(400).json({ error: 'Describe what you want from your launch.' });
+  try { res.json(await R.recommend(prompt)); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/api/presets', (req, res) => res.json(Object.fromEntries(Object.keys(C.PRESETS).map(k => [k, C.presetPoints(k)]))));
 

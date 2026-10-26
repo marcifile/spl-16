@@ -691,3 +691,6 @@ body.v5{--brand:#d4471f;--brand-ink:#b33a17}
 .gl{display:flex;flex-wrap:wrap;gap:5px}.gl button{border:1px solid var(--line);background:#fff;border-radius:999px;font:inherit;font-size:12px;font-weight:500;padding:5px 10px;cursor:pointer;color:var(--ink2)}
 .gl button:hover{border-color:var(--line2)}.gl button.on{border-color:var(--brand);color:var(--brand);background:#fdf3ef}
 #goalnote{margin-top:8px}
+.ask{margin-top:18px}.ask-row{display:flex;gap:6px}.ask-row input{flex:1;min-width:0;border:1px solid var(--line2);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;background:#fff;outline:none}.ask-row input:focus{border-color:var(--ink)}
+.ask-out{margin-top:10px;border:1px solid #f0cfc2;background:#fdf6f2;border-radius:8px;padding:10px 12px;font-size:12.5px}
+.ask-out b{font-size:13px}.ask-out p{margin:4px 0 6px;color:var(--ink2);line-height:1.5}.ask-out .mono{display:block;font-size:11px;color:var(--brand)}.ask-out small{display:block;margin-top:4px;color:var(--ink3);font-size:11px}.ask-out .dim{color:var(--ink3)}

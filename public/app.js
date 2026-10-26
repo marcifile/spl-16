@@ -75,6 +75,9 @@ function canvasHTML() {
       <div class="sh"><b>1</b><h3>Draw</h3><span class="shape-tag" id="k-shape" title="what your curve reads as">—</span></div>
       <div class="shapes" id="shapes"><div class="shape" data-s="custom" title="your own drawing"><svg viewBox="0 0 34 20" width="34" height="20"><path d="M4 16 C9 15 10 9 15 10 S22 13 24 7 29 3 30 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2.2 2.6"/></svg><i>custom</i></div>${Object.keys(PRESETS).map(k => `<div class="shape" data-s="${k}" title="${k}">${glyph(PRESETS[k], 34, 20)}<i>${k}</i></div>`).join('')}</div>
       <div class="goals"><span class="gl-h">Or start from a goal</span><div class="gl" id="goals">${GOALS.map(g => `<button type="button" data-g="${g[0]}">${g[1]}</button>`).join('')}</div><p class="note" id="goalnote" style="display:none"></p></div>
+      <div class="ask"><span class="gl-h">Or describe your launch</span>
+        <div class="ask-row"><input id="askq" maxlength="300" placeholder="e.g. community coin, fair, graduate around 100 SOL, keep snipers out"><button type="button" class="btn sm" id="askgo">Suggest</button></div>
+        <div class="ask-out" id="askout" style="display:none"></div></div>
       <div class="kvs">
         <div class="kv"><span>SOL to graduate</span><b id="k-grad">—</b></div>
         <div class="kv"><span>First 10% of supply costs</span><b id="k-first">—</b></div>
@@ -216,6 +219,18 @@ function mountCanvas(root, { compact = false } = {}) {
     if (pts) quote(pts.map(price), false);
   };
   document.querySelectorAll('#taxes .tx').forEach(x => (x.onclick = () => setTax(x.dataset.t, TAXP.find(t => t[0] === x.dataset.t)[1])));
+  const ask = async () => {
+    const q = $('#askq').value.trim(); const out = $('#askout'); if (q.length < 3) { $('#askq').focus(); return; }
+    const b = $('#askgo'); b.disabled = true; b.textContent = 'Thinking…'; out.style.display = ''; out.innerHTML = '<span class="dim">Drafting a curve and checking it against the quote…</span>';
+    try {
+      const r = await fetch('/api/recommend', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: q }) }); const j = await r.json(); if (!r.ok) throw new Error(j.error);
+      ink.innerHTML = ''; cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); fromPoints(j.points); pick(null);
+      setTax(j.tax, TAXP.find(t => t[0] === j.tax)?.[1]); document.querySelectorAll('#goals button').forEach(x => x.classList.remove('on')); $('#goalnote').style.display = 'none';
+      out.innerHTML = `<b>${esc(j.title)}</b><p>${esc(j.rationale)}</p><span class="mono">${j.stats.solToGraduate} SOL to graduate · first 10% ${j.stats.first10PctCostSol} SOL · tax ${esc(j.tax)}</span><small>Applied to the board. Redraw any part to adjust.</small>`;
+    } catch (e) { out.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+    b.disabled = false; b.textContent = 'Suggest';
+  };
+  $('#askgo').onclick = ask; $('#askq').addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
   $('#goals').onclick = e => {
     const b = e.target.closest('button'); if (!b) return; const g = GOALS.find(x => x[0] === b.dataset.g);
     const f = g[2] || (x => PRESETS.standard[Math.round(x * (N - 1))]); const P = Array.from({ length: N }, (_, i) => Math.min(1, Math.max(0, f(i / (N - 1)))));
