@@ -21,7 +21,7 @@ services:
         sync: false
       - key: HOUSE_WALLET
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: OPENAI_API_KEY
         sync: false
       - key: HOLDER_MIN_TOKENS
         value: "1000000"
