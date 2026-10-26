@@ -84,7 +84,7 @@ app.post('/api/launch/prepare', async (req, res) => {
     const nm = String(name || '').trim().slice(0, 32), tk = String(ticker || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     if (nm.length < 1 || tk.length < 2) return res.status(400).json({ error: 'name and ticker (2–10 letters)' });
     if (reserved(nm, tk) && !officialWallets().includes(String(creator))) return res.status(400).json({ error: 'That name and ticker are reserved for the official SPL-16 coin.' });
-    const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax, opts }); // validates the curve
+    const hs = await holderStatus(String(creator)); const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax, opts: { ...opts, creatorPct: hs.eligible ? HOLD_PCT : 50 } }); // validates the curve
     const fb = Math.max(0, Math.min(50, Number(firstBuySol) || 0)); q.opts = { ...q.opts, devBuySol: fb };
     const stamp = `${tk.toLowerCase()}-${crypto.randomBytes(3).toString('hex')}`;
     let imageUrl, logoUrl = null;
@@ -130,6 +130,15 @@ function record({ mint, pool, config, name, ticker, description, image, logo, ur
 try { db.exec('alter table coins add column tax_json text'); } catch {}
 try { db.exec('alter table coins add column twitter text'); } catch {}
 try { db.exec('alter table coins add column opts_json text'); } catch {}
+// Holder boost: creators holding enough $SPL (PLATFORM_MINT) when they launch get a bigger creator share,
+// written into their coin's config. Server-decided from an on-chain balance read, never from the client.
+const HOLD_MIN = Number(process.env.HOLDER_MIN_TOKENS || 1_000_000), HOLD_PCT = 70;
+async function holderStatus(wallet) {
+  const mint = process.env.PLATFORM_MINT; if (!mint || DRY) return { live: false, min: HOLD_MIN, pct: HOLD_PCT, held: 0, eligible: false };
+  try { const b = await SW.balances({ mint, wallet }); return { live: true, min: HOLD_MIN, pct: HOLD_PCT, held: b.tokens, eligible: b.tokens >= HOLD_MIN }; }
+  catch { return { live: true, min: HOLD_MIN, pct: HOLD_PCT, held: 0, eligible: false }; }
+}
+app.get('/api/holder/:wallet', async (req, res) => { if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(req.params.wallet)) return res.status(400).json({ error: 'bad wallet' }); res.json(await holderStatus(req.params.wallet)); });
 // The platform's own name and ticker can only be launched from the official wallet(s).
 const officialWallets = () => [process.env.HOUSE_WALLET, ...String(process.env.OFFICIAL_WALLETS || '').split(',')].map(s => (s || '').trim()).filter(Boolean);
 function reserved(name, ticker) {

@@ -674,3 +674,6 @@ body.v5{--brand:#d4471f;--brand-ink:#b33a17}
 .nf .mark.sm{width:18px;height:18px}
 @media (max-width:900px){.chartbox{min-height:0}}
 .mono-ic i{right:9%;bottom:9%;width:9%;height:9%}
+.op.hold b{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--ink3)}.op.hold.on b{color:var(--brand)}.op.hold.on{background:#fbf3ef}
+.tg.hold{color:var(--brand);background:#fbece6}
+.mg>div:last-child:nth-child(odd){grid-column:1/-1}

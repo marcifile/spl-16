@@ -33,7 +33,7 @@ const taxGlyph = T => { if (!T) return `<svg viewBox="0 0 34 20" width="34" heig
 // ---------- wallet ----------
 const provider = () => window.solana || window.phantom?.solana;
 async function connect() { const p = provider(); if (!p) { alert('No Solana wallet found. Install Phantom.'); return null; } const r = await p.connect(); wallet = r.publicKey.toString(); paintWallet(); return wallet; }
-function paintWallet() { const b = $('#wallet span'); b.textContent = wallet ? short(wallet) : 'Connect'; }
+function paintWallet() { window.dispatchEvent(new Event('wallet')); const b = $('#wallet span'); b.textContent = wallet ? short(wallet) : 'Connect'; }
 $('#wallet').onclick = async () => { if (wallet) { try { await provider().disconnect(); } catch {} wallet = null; paintWallet(); } else connect(); };
 provider()?.connect?.({ onlyIfTrusted: true }).then(r => { wallet = r.publicKey.toString(); paintWallet(); }).catch(() => {});
 async function state() { S = await (await fetch('/api/state')).json(); if (!PRESETS) PRESETS = await (await fetch('/api/presets')).json(); return S; }
@@ -95,6 +95,7 @@ function canvasHTML() {
           <div class="op"><span>Dev buy<small>bought in the launch transaction, before anyone else</small></span><div class="op-in"><input id="fb" type="number" min="0" max="50" step="0.05" placeholder="0"><em>SOL</em></div></div>
           <div class="op"><span>Pool fee after graduation<small>the DAMM v2 pool's swap fee</small></span><div class="seg2" id="lpfee">${[[25, '0.25%'], [100, '1%'], [200, '2%'], [400, '4%']].map(([v, t]) => `<button type="button" data-v="${v}" class="${v === 100 ? 'on' : ''}">${t}</button>`).join('')}</div></div>
           <div class="op"><span>Volatility fee<small>adds to the fee during sharp moves</small></span><label class="switch on" id="volsw"><i></i><span>on</span></label></div>
+          <div class="op hold" id="hold"><span>Holder boost<small id="holdtxt">Hold $SPL when you launch and earn 70% of trading fees instead of 50%.</small></span><b id="holdpct">50%</b></div>
         </div>
         <button class="btn pri big wide" id="launch" disabled>Connect wallet to launch</button>
         <div class="err" id="err"></div>
@@ -199,6 +200,18 @@ function mountCanvas(root, { compact = false } = {}) {
   };
   document.querySelectorAll('#taxes .tx').forEach(x => (x.onclick = () => setTax(x.dataset.t, TAXP.find(t => t[0] === x.dataset.t)[1])));
   setTax('off');
+  // holder boost: read the creator's $SPL balance (the server decides the real share at launch)
+  async function paintHold() {
+    const t = $('#holdtxt'), b = $('#holdpct'); if (!t) return;
+    let h = { live: !!S.ca, min: 1_000_000, pct: 70, held: 0, eligible: false };
+    if (wallet && S.ca) { try { h = await (await fetch(`/api/holder/${wallet}`)).json(); } catch {} }
+    const need = big(h.min);
+    if (!h.live) { t.textContent = `Hold ${need} $SPL when you launch and earn ${h.pct}% of trading fees instead of 50%. Live once $SPL launches.`; b.textContent = '50%'; }
+    else if (!wallet) t.textContent = `Hold ${need} $SPL when you launch and earn ${h.pct}% of trading fees instead of 50%. Connect to check.`;
+    else if (h.eligible) { t.textContent = `You hold ${big(h.held)} $SPL. This coin's config gives you ${h.pct}% of trading fees.`; b.textContent = h.pct + '%'; $('#hold').classList.add('on'); }
+    else { t.textContent = `You hold ${big(h.held)} $SPL. Hold ${need} to earn ${h.pct}% instead of 50%.`; b.textContent = '50%'; }
+  }
+  paintHold(); window.addEventListener('wallet', paintHold);
   // launch options
   $('#lpfee').onclick = e => { const v = e.target.dataset.v; if (!v) return; LPFEE = +v; document.querySelectorAll('#lpfee button').forEach(b => b.classList.toggle('on', b === e.target)); };
   $('#volsw').onclick = () => { VOLFEE = !VOLFEE; $('#volsw').classList.toggle('on', VOLFEE); $('#volsw span').textContent = VOLFEE ? 'on' : 'off'; };
@@ -260,6 +273,7 @@ function optTags(c) {
   const o = c.opts_json ? JSON.parse(c.opts_json) : {}, t = c.tax_json ? JSON.parse(c.tax_json) : null, out = [];
   if (c.tax_start_bps) out.push(`<i class="tg tax">tax 95→1% · ${mmss(t?.seconds || 600)}</i>`);
   if (o.devBuySol > 0) out.push(`<i class="tg">dev buy ${o.devBuySol} SOL</i>`);
+  if (o.creatorPct === 70) out.push(`<i class="tg hold">$SPL holder · 70% to creator</i>`);
   if (o.lpFeeBps && o.lpFeeBps !== 100) out.push(`<i class="tg">${o.lpFeeBps / 100}% pool fee</i>`);
   if (o.volFee === false) out.push(`<i class="tg">no vol fee</i>`);
   if (c.twitter) out.push(`<i class="tg">X linked</i>`);
@@ -343,7 +357,8 @@ function home() {
         <div><b>Custom curve</b><p>Draw any shape, or start from standard, cliff, stairs, ramp, hockey or fat. It compiles to 16 sqrt-prices and its own DBC config — not a preset with a different name.</p></div>
         <div><b>Sniper tax you draw</b><p>Buys can pay up to 95% at open, decaying to 1% on the schedule you draw — fast, slow, linear or exponential. The scheduler can only lower it.</p></div>
         <div><b>Launch options</b><p>Dev buy in the launch transaction, the pool fee after graduation, and a volatility fee — all shown on the coin so buyers see the rules up front.</p></div>
-        <div><b>Nothing to pull</b><p>The config is immutable, the mint is revoked, and liquidity locks for good when the coin graduates to DAMM v2. Creators earn 50% of trading fees.</p></div>
+        <div><b>Nothing to pull</b><p>The config is immutable, the mint is revoked, and liquidity locks for good when the coin graduates to DAMM v2.</p></div>
+        <div><b>Hold $SPL, earn more</b><p>Creators earn 50% of trading fees. Hold $SPL when you launch and your coin's config gives you 70% — enforced by Meteora for the life of the coin.</p></div>
       </div>
       <div class="mf"><a class="btn pri" href="/draw">Draw a curve</a><a class="btn" href="/standard">Read the standard</a></div>
     </div></div>`);

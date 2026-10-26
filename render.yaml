@@ -21,6 +21,8 @@ services:
         sync: false
       - key: HOUSE_WALLET
         sync: false
+      - key: HOLDER_MIN_TOKENS
+        value: "1000000"
       - key: OFFICIAL_WALLETS
         sync: false
       - key: HOUSE_WALLET_SECRET
