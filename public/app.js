@@ -26,6 +26,13 @@ const DUCK = `<svg viewBox="0 0 44 30" class="duck-svg"><path d="M22 2 L22 9" st
 let TAX = { mode: 'exp', seconds: 600 }, LPFEE = 100, VOLFEE = true;
 const taxAt = (s, T = TAX) => { const P = T.seconds / 10, n = Math.min(P, Math.floor(s / 10)); return T.mode === 'linear' ? 95 - (94 * n) / P : 95 * Math.pow(1 / 95, n / P); };
 const mmss = s => `${Math.floor(s / 60)}m${s % 60 ? ` ${s % 60}s` : ''}`;
+// launch goals: a curve plus a sniper tax, each tuned for one outcome
+const GOALS = [
+  ['low', 'Low entry cost', x => (x < .5 ? .002 + x * .02 : .012 + Math.pow((x - .5) / .5, 2) * .988), 'fast', 'Half the supply sells near the launch price, and the curve graduates on the least SOL. Fast tax.'],
+  ['balanced', 'Balanced growth', null, 'standard', 'The constant-product curve most launchpads use. A familiar baseline. Standard tax.'],
+  ['fair', 'Fair distribution', x => .01 + .45 * x + .54 * Math.pow(x, 3), 'standard', 'Price climbs steadily the whole way, so no stretch of supply is cheap to sweep. Standard tax.'],
+  ['sniper', 'Sniper-resistant', x => .12 + .88 * Math.pow(x, 1.15), 'gradual', 'Opens higher, so the first 10% costs about twice as much, with a slow 15-minute tax on top.'],
+];
 let TAXMAX = 1200, HOLDER = false, CEIL = 400;
 const coinOpts = c => { try { return c.opts_json ? JSON.parse(c.opts_json) : {}; } catch { return {}; } };
 const hiOf = c => coinOpts(c).maxMcap || S.config.maxMcapSol;
@@ -67,6 +74,7 @@ function canvasHTML() {
     <div class="card step" id="s1"><div class="sec">
       <div class="sh"><b>1</b><h3>Draw</h3><span class="shape-tag" id="k-shape" title="what your curve reads as">—</span></div>
       <div class="shapes" id="shapes"><div class="shape" data-s="custom" title="your own drawing"><svg viewBox="0 0 34 20" width="34" height="20"><path d="M4 16 C9 15 10 9 15 10 S22 13 24 7 29 3 30 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2.2 2.6"/></svg><i>custom</i></div>${Object.keys(PRESETS).map(k => `<div class="shape" data-s="${k}" title="${k}">${glyph(PRESETS[k], 34, 20)}<i>${k}</i></div>`).join('')}</div>
+      <div class="goals"><span class="gl-h">Or start from a goal</span><div class="gl" id="goals">${GOALS.map(g => `<button type="button" data-g="${g[0]}">${g[1]}</button>`).join('')}</div><p class="note" id="goalnote" style="display:none"></p></div>
       <div class="kvs">
         <div class="kv"><span>SOL to graduate</span><b id="k-grad">—</b></div>
         <div class="kv"><span>First 10% of supply costs</span><b id="k-first">—</b></div>
@@ -77,7 +85,7 @@ function canvasHTML() {
       <div class="sh"><b>2</b><h3>Sniper tax</h3><span class="shape-tag" id="k-fit">off</span></div>
       <div class="body">
         <div class="taxes" id="taxes">${TAXP.map(([k, t]) => `<div class="shape tx" data-t="${k}" title="${k}">${k === 'custom' ? '<svg viewBox="0 0 34 20" width="34" height="20"><path d="M3 3 C8 4 9 12 15 12 S26 15 31 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2.2 2.6"/></svg>' : taxGlyph(t)}<i>${k}</i></div>`).join('')}</div>
-        <p class="note" id="taxnote">No tax. Buys pay the normal 1% fee from the first block.</p>
+        <p class="note" id="taxnote">No tax. Trades pay the normal 1% fee from the first block.</p>
       </div></div></div>
     <div class="card step locked" id="s3"><div class="sec">
       <div class="sh"><b>3</b><h3>Name</h3></div>
@@ -163,7 +171,7 @@ function mountCanvas(root, { compact = false } = {}) {
   const inkSeg = (a, b, w) => ink.insertAdjacentHTML('beforeend', `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke-width="${w.toFixed(2)}"/>`);
   const start = e => { if (e.button && e.button !== 0) return; drawing = true; ink.innerHTML = ''; ink.classList.remove('fade'); cv.classList.remove('settle'); raw = [toSvg(e)]; lastT = performance.now(); inkW = 4; pts = null; render(); e.preventDefault(); };
   const move = e => { if (!drawing) return; const p = toSvg(e); const q = raw[raw.length - 1]; if (p.x >= q.x) { const t = performance.now(), v = Math.hypot(p.x - q.x, p.y - q.y) / Math.max(1, t - lastT); lastT = t; inkW = inkW * .7 + Math.max(1.3, Math.min(5.5, 5.8 - v * 2.2)) * .3; inkSeg(q, p, inkW); raw.push(p); } $('#ghost').classList.add('off'); $('#hint').classList.add('off'); e.preventDefault(); };
-  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) { pts = snap(raw); cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); ink.classList.add('fade'); pick('custom'); } raw = []; render(true); };
+  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) { pts = snap(raw); cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); ink.classList.add('fade'); pick('custom'); document.querySelectorAll('#goals button').forEach(x => x.classList.remove('on')); $('#goalnote').style.display = 'none'; } raw = []; render(true); };
   const nib = $('#nib');
   cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); nib.style.transform = `translate(${e.clientX - r.left}px,${e.clientY - r.top - 22}px)`; nib.classList.add('on'); nib.classList.toggle('down', drawing); });
   cv.addEventListener('mouseleave', () => nib.classList.remove('on'));
@@ -203,11 +211,18 @@ function mountCanvas(root, { compact = false } = {}) {
     document.querySelectorAll('#taxes .tx').forEach(x => x.classList.toggle('on', x.dataset.t === k));
     $('#taxcard').classList.toggle('on', taxOn); $('#s2').classList.toggle('tax-on', taxOn);
     $('#taxhint').classList.toggle('off', k !== 'custom' || traw.length > 0);
-    $('#taxnote').textContent = !taxOn ? 'No tax. Buys pay the normal 1% fee from the first block.' : k === 'custom' ? 'Draw the decay on the tax board under the curve.' : `Buys pay 95% at open, falling to 1% over ${mmss(TAX.seconds)}.`;
+    $('#taxnote').textContent = !taxOn ? 'No tax. Trades pay the normal 1% fee from the first block.' : k === 'custom' ? 'Draw the decay on the tax board under the curve.' : `Trades pay 95% at open, falling to 1% over ${mmss(TAX.seconds)}.`;
     paintTax(); if (k === 'custom' && !traw.length) $('#taxcard').scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (pts) quote(pts.map(price), false);
   };
   document.querySelectorAll('#taxes .tx').forEach(x => (x.onclick = () => setTax(x.dataset.t, TAXP.find(t => t[0] === x.dataset.t)[1])));
+  $('#goals').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return; const g = GOALS.find(x => x[0] === b.dataset.g);
+    const f = g[2] || (x => PRESETS.standard[Math.round(x * (N - 1))]); const P = Array.from({ length: N }, (_, i) => Math.min(1, Math.max(0, f(i / (N - 1)))));
+    ink.innerHTML = ''; cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); fromPoints(P); pick(g[0] === 'balanced' ? 'standard' : null);
+    setTax(g[3], TAXP.find(t => t[0] === g[3])[1]);
+    document.querySelectorAll('#goals button').forEach(x => x.classList.toggle('on', x === b)); const n = $('#goalnote'); n.style.display = ''; n.textContent = g[4];
+  };
   setTax('off');
   // holder boost: read the creator's $SPL balance (the server decides the real share at launch)
   async function paintHold() {
