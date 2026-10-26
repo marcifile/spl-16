@@ -90,7 +90,7 @@ app.post('/api/launch/prepare', async (req, res) => {
     if (tw && !twUrl) return res.status(400).json({ error: 'X link should be a handle or an x.com link' });
     const mintKp = Keypair.generate(); const mintAddr = DRY ? crypto.randomBytes(32).toString('hex').slice(0, 44) : mintKp.publicKey.toBase58();
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(creator))) return res.status(400).json({ error: 'connect a wallet first' });
-    const nm = String(name || '').trim().slice(0, 32), tk = String(ticker || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    const nm = String(name || '').trim().slice(0, 32), tk = String(ticker || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').replace(/^-+|-+$/g, '').replace(/-{2,}/g, '-').slice(0, 10);
     if (nm.length < 1 || tk.length < 2) return res.status(400).json({ error: 'name and ticker (2–10 letters)' });
     if (reserved(nm, tk) && !officialWallets().includes(String(creator))) return res.status(400).json({ error: 'That name and ticker are reserved for the official SPL-16 coin.' });
     const hs = await holderStatus(String(creator)); const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax, opts: { ...opts, holder: hs.eligible, creatorPct: hs.eligible ? HOLD_PCT : 50 } }); // validates the curve; holder perks only if the chain says so
@@ -152,7 +152,7 @@ app.get('/api/holder/:wallet', async (req, res) => { if (!/^[1-9A-HJ-NP-Za-km-z]
 // The platform's own name and ticker can only be launched from the official wallet(s).
 const officialWallets = () => [process.env.HOUSE_WALLET, ...String(process.env.OFFICIAL_WALLETS || '').split(',')].map(s => (s || '').trim()).filter(Boolean);
 function reserved(name, ticker) {
-  const n = String(name).toLowerCase().replace(/[^a-z0-9]/g, ''), t = String(ticker).toUpperCase();
+  const n = String(name).toLowerCase().replace(/[^a-z0-9]/g, ''), t = String(ticker).toUpperCase().replace(/[^A-Z0-9]/g, '');
   return ['SPL', 'SPL16', 'SPLINE'].includes(t) || ['spl16', 'spl', 'spline', 'splinestandard', 'thesplinestandard'].includes(n);
 }
 // Coins removed from the site (duplicate test launches). Runs on every start; idempotent.
