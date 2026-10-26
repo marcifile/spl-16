@@ -21,6 +21,8 @@ services:
         sync: false
       - key: HOUSE_WALLET
         sync: false
+      - key: OFFICIAL_WALLETS
+        sync: false
       - key: HOUSE_WALLET_SECRET
         sync: false
       - key: PINATA_JWT

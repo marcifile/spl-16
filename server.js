@@ -83,6 +83,7 @@ app.post('/api/launch/prepare', async (req, res) => {
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(creator))) return res.status(400).json({ error: 'connect a wallet first' });
     const nm = String(name || '').trim().slice(0, 32), tk = String(ticker || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     if (nm.length < 1 || tk.length < 2) return res.status(400).json({ error: 'name and ticker (2–10 letters)' });
+    if (reserved(nm, tk) && !officialWallets().includes(String(creator))) return res.status(400).json({ error: 'That name and ticker are reserved for the official SPL-16 coin.' });
     const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax, opts }); // validates the curve
     const fb = Math.max(0, Math.min(50, Number(firstBuySol) || 0)); q.opts = { ...q.opts, devBuySol: fb };
     const stamp = `${tk.toLowerCase()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -114,6 +115,7 @@ app.post('/api/launch/confirm', async (req, res) => {
     if (!p) return res.status(404).json({ error: 'unknown launch' });
     const c = await confirmLaunch(sig);
     if (!c.confirmed) return res.status(409).json({ error: c.err ? 'transaction failed' : 'not confirmed yet', detail: c.err });
+    if (reserved(p.name, p.ticker) && !officialWallets().includes(String(p.creator))) return res.status(400).json({ error: 'reserved name' });
     record({ ...p, sig }); pending.delete(mint);
     res.json({ ok: true, mint, pool: p.pool });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -128,9 +130,16 @@ function record({ mint, pool, config, name, ticker, description, image, logo, ur
 try { db.exec('alter table coins add column tax_json text'); } catch {}
 try { db.exec('alter table coins add column twitter text'); } catch {}
 try { db.exec('alter table coins add column opts_json text'); } catch {}
+// The platform's own name and ticker can only be launched from the official wallet(s).
+const officialWallets = () => [process.env.HOUSE_WALLET, ...String(process.env.OFFICIAL_WALLETS || '').split(',')].map(s => (s || '').trim()).filter(Boolean);
+function reserved(name, ticker) {
+  const n = String(name).toLowerCase().replace(/[^a-z0-9]/g, ''), t = String(ticker).toUpperCase();
+  return ['SPL', 'SPL16', 'SPLINE'].includes(t) || ['spl16', 'spl', 'spline', 'splinestandard', 'thesplinestandard'].includes(n);
+}
 // Coins removed from the site (duplicate test launches). Runs on every start; idempotent.
-const REMOVED = ['QSUasoYpvc2T6VXhLbpNsg28WxEzPU61vC8yqjqeCcJ', '8z4mj9L851KFtxxmZ93do7o5m5pEgWbsrzrKyaqnHSJp', 'HNJFPPUCCk2RtpcNBHpYNCEqPBjhFUZQgiBtbR9ViHb9', '4dcs7prUKyPCekWAGmxtgiwtQYL2YsBAx57oeWmhfwZP'];
+const REMOVED = ['9QZF27jQrQsRNEQXByVqU2VhicjMK1x2Rk6nAoGmqCMn', 'QSUasoYpvc2T6VXhLbpNsg28WxEzPU61vC8yqjqeCcJ', '8z4mj9L851KFtxxmZ93do7o5m5pEgWbsrzrKyaqnHSJp', 'HNJFPPUCCk2RtpcNBHpYNCEqPBjhFUZQgiBtbR9ViHb9', '4dcs7prUKyPCekWAGmxtgiwtQYL2YsBAx57oeWmhfwZP'];
 try { const del = db.transaction(ms => { for (const m of ms) { db.prepare('delete from coins where mint=?').run(m); db.prepare('delete from trades where mint=?').run(m); } }); del(REMOVED); } catch (e) { console.error('remove', e.message); }
+try { for (const c of db.prepare('select mint, name, ticker, creator from coins').all()) if (reserved(c.name, c.ticker) && !officialWallets().includes(c.creator)) { db.prepare('delete from coins where mint=?').run(c.mint); db.prepare('delete from trades where mint=?').run(c.mint); } } catch (e) { console.error('reserved', e.message); }
 
 // ---- live loop: every 30s refresh every pool that hasn't graduated (stats + new trades) ----
 async function loop() {

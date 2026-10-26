@@ -210,6 +210,8 @@ function mountCanvas(root, { compact = false } = {}) {
   $('#launch').onclick = async () => {
     const err = $('#err'); err.textContent = '';
     if (!wallet && !(await connect())) return; updateLaunch(); if ($('#launch').disabled) return;
+    const tkv = $('#tk').value.trim().toUpperCase(), nmv = $('#nm').value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (['SPL', 'SPL16', 'SPLINE'].includes(tkv) || ['spl16', 'spl', 'spline', 'splinestandard', 'thesplinestandard'].includes(nmv)) { err.textContent = 'That name and ticker are reserved for the official SPL-16 coin.'; return; }
     const body = { creator: wallet, opts: { lpFeeBps: LPFEE, volFee: VOLFEE }, twitter: $('#tw').value, name: $('#nm').value, ticker: $('#tk').value, description: $('#ds').value, points: pts.map(price), taxStartBps: taxOn ? 9500 : 0, tax: TAX, firstBuySol: Number($('#fb').value) || 0, logo: logoData };
     const b = $('#launch'); b.disabled = true; b.textContent = 'Preparing…';
     try {
