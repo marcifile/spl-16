@@ -26,8 +26,10 @@ const DUCK = `<svg viewBox="0 0 44 30" class="duck-svg"><path d="M22 2 L22 9" st
 let TAX = { mode: 'exp', seconds: 600 }, LPFEE = 100, VOLFEE = true;
 const taxAt = (s, T = TAX) => { const P = T.seconds / 10, n = Math.min(P, Math.floor(s / 10)); return T.mode === 'linear' ? 95 - (94 * n) / P : 95 * Math.pow(1 / 95, n / P); };
 const mmss = s => `${Math.floor(s / 60)}m${s % 60 ? ` ${s % 60}s` : ''}`;
-const TAXMAX = 1200;
-const TAXP = [['off', null], ['fast', { mode: 'exp', seconds: 180 }], ['standard', { mode: 'exp', seconds: 600 }], ['gradual', { mode: 'linear', seconds: 900 }], ['custom', null]];
+let TAXMAX = 1200, HOLDER = false, CEIL = 400;
+const coinOpts = c => { try { return c.opts_json ? JSON.parse(c.opts_json) : {}; } catch { return {}; } };
+const hiOf = c => coinOpts(c).maxMcap || S.config.maxMcapSol;
+const TAXP = [['off', null], ['fast', { mode: 'exp', seconds: 180 }], ['standard', { mode: 'exp', seconds: 600 }], ['gradual', { mode: 'linear', seconds: 900 }], ['long', { mode: 'exp', seconds: 3600 }], ['custom', null]];
 const taxGlyph = T => { if (!T) return `<svg viewBox="0 0 34 20" width="34" height="20"><path d="M3 17 L31 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" ${''}/></svg>`; let d = 'M3,3'; for (let s = 10; s <= 1200; s += 30) { const x = 3 + s / 1200 * 28, y = 3 + (95 - taxAt(s, T)) / 94 * 14; d += ` L${x.toFixed(1)},${y.toFixed(1)}`; } return `<svg viewBox="0 0 34 20" width="34" height="20"><path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; };
 
 // ---------- wallet ----------
@@ -58,8 +60,8 @@ function canvasHTML() {
     <div class="legend"><span><span class="duckleg">${DUCK}</span>16 points (ducks)</span><span><span class="sw strip"></span>the spline</span><span><span class="sw" style="background:var(--bad)"></span>flattened</span><span class="r mono">y · mcap SOL · x · supply sold</span></div>
   </div>
   <div class="card taxcard" id="taxcard">
-    <div class="ch"><h2>Sniper tax <span class="sub">buy fee over the first 20 minutes · 95% at open, 1% floor</span></h2><span class="mono k-tax" id="k-tax">—</span></div>
-    <div class="stage"><div class="canvas tax" id="taxbar"><svg id="taxsvg" viewBox="0 0 400 100" preserveAspectRatio="none">${[50, 25, 10].map(f => `<line x1="0" x2="400" y1="${(95 - f) / 94 * 100}" y2="${(95 - f) / 94 * 100}" stroke="#2f4a6d" stroke-opacity=".1" vector-effect="non-scaling-stroke"/>`).join('')}${[2, 4, 6, 8, 10, 12, 14, 16, 18].map(m => `<line x1="${m / 20 * 400}" x2="${m / 20 * 400}" y1="0" y2="100" stroke="#2f4a6d" stroke-opacity="${m % 10 ? .06 : .14}" vector-effect="non-scaling-stroke"/>`).join('')}<path id="taxarea" fill="#c8443a" fill-opacity=".08"/><path id="taxink" fill="none" stroke="#17171a" stroke-opacity=".35" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/><path id="taxline" fill="none" stroke="#c8443a" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><span class="axis" style="left:8px;top:6px">95%</span><span class="axis" style="left:8px;bottom:6px">1%</span><span class="axis" style="left:8px;top:${(95 - 50) / 94 * 100}%;transform:translateY(-50%)">50%</span><span class="axis" style="right:8px;bottom:6px">20 min</span><span class="axis" style="left:50%;bottom:6px;transform:translateX(-50%)">10 min</span><div class="taxhint" id="taxhint">draw the decay</div></div><div class="taxoff" id="taxoff">Sniper tax is off. Pick a schedule in step 2, or choose custom and draw one here.</div></div>
+    <div class="ch"><h2>Sniper tax <span class="sub" id="taxsub">fee over the first 20 minutes · 95% at open, 1% floor</span></h2><span class="mono k-tax" id="k-tax">—</span></div>
+    <div class="stage"><div class="canvas tax" id="taxbar"><svg id="taxsvg" viewBox="0 0 400 100" preserveAspectRatio="none">${[50, 25, 10].map(f => `<line x1="0" x2="400" y1="${(95 - f) / 94 * 100}" y2="${(95 - f) / 94 * 100}" stroke="#2f4a6d" stroke-opacity=".1" vector-effect="non-scaling-stroke"/>`).join('')}${[2, 4, 6, 8, 10, 12, 14, 16, 18].map(m => `<line x1="${m / 20 * 400}" x2="${m / 20 * 400}" y1="0" y2="100" stroke="#2f4a6d" stroke-opacity="${m % 10 ? .06 : .14}" vector-effect="non-scaling-stroke"/>`).join('')}<path id="taxarea" fill="#c8443a" fill-opacity=".08"/><path id="taxink" fill="none" stroke="#17171a" stroke-opacity=".35" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/><path id="taxline" fill="none" stroke="#c8443a" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><span class="axis" style="left:8px;top:6px">95%</span><span class="axis" style="left:8px;bottom:6px">1%</span><span class="axis" style="left:8px;top:${(95 - 50) / 94 * 100}%;transform:translateY(-50%)">50%</span><span class="axis" id="taxend" style="right:8px;bottom:6px">20 min</span><span class="axis" id="taxmid" style="left:50%;bottom:6px;transform:translateX(-50%)">10 min</span><div class="taxhint" id="taxhint">draw the decay</div></div><div class="taxoff" id="taxoff">Sniper tax is off. Pick a schedule in step 2, or choose custom and draw one here.</div></div>
   </div></div>
   <div class="side">
     <div class="card step" id="s1"><div class="sec">
@@ -95,7 +97,13 @@ function canvasHTML() {
           <div class="op"><span>Dev buy<small>bought in the launch transaction, before anyone else</small></span><div class="op-in"><input id="fb" type="number" min="0" max="50" step="0.05" placeholder="0"><em>SOL</em></div></div>
           <div class="op"><span>Pool fee after graduation<small>the DAMM v2 pool's swap fee</small></span><div class="seg2" id="lpfee">${[[25, '0.25%'], [100, '1%'], [200, '2%'], [400, '4%']].map(([v, t]) => `<button type="button" data-v="${v}" class="${v === 100 ? 'on' : ''}">${t}</button>`).join('')}</div></div>
           <div class="op"><span>Volatility fee<small>adds to the fee during sharp moves</small></span><label class="switch on" id="volsw"><i></i><span>on</span></label></div>
-          <div class="op hold" id="hold"><span>Holder boost<small id="holdtxt">Hold $SPL when you launch and earn 70% of trading fees instead of 50%.</small></span><b id="holdpct">50%</b></div>
+        </div>
+        <div class="hgroup" id="hold">
+          <div class="hg-h"><b><svg viewBox="0 0 100 100"><use href="#m16"/></svg>$SPL holder options</b><small id="holdtxt">Hold $SPL when you launch to unlock these.</small></div>
+          <div class="op"><span>Creator fee share<small>written into this coin's config for good</small></span><b id="holdpct">50%</b></div>
+          <div class="op"><span>Board ceiling<small>draw curves up to a 1,000 SOL market cap</small></span><div class="seg2" id="ceil"><button type="button" data-v="400" class="on">400</button><button type="button" data-v="1000">1,000</button></div></div>
+          <div class="op"><span>Long sniper tax<small>a 60-minute window on the tax board</small></span><b class="hv">60m</b></div>
+          <div class="op"><span>Featured slot<small>pinned on the home page for an hour, with a holder badge</small></span><b class="hv">auto</b></div>
         </div>
         <button class="btn pri big wide" id="launch" disabled>Connect wallet to launch</button>
         <div class="err" id="err"></div>
@@ -111,8 +119,9 @@ function mountCanvas(root, { compact = false } = {}) {
   const price = p => (H - PAD - p.y) / (H - 2 * PAD);
   let reached = 1; const stepOn = (n, on) => { if (on) reached = Math.max(reached, n); $(`#s${n}`).classList.toggle('locked', !on && n > reached); };
   let picked = null; const pick = k => { picked = k; document.querySelectorAll('.shape').forEach(s => s.classList.toggle('on', s.dataset.s === k)); };
-  const lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
-  $('#ylab').innerHTML = [1, .75, .5, .25, 0].map(v => `<span style="top:${(PAD + (H - 2 * PAD) * (1 - v)) / H * 100}%">${Math.round(lo + (hi - lo) * v)}</span>`).join('') + `<span class="axt">SOL</span>`;
+  const lo = S.config.startMcapSol; let hi = CEIL;
+  const relabel = () => { hi = CEIL; $('#ylab').innerHTML = [1, .75, .5, .25, 0].map(v => `<span style="top:${(PAD + (H - 2 * PAD) * (1 - v)) / H * 100}%">${Math.round(lo + (hi - lo) * v)}</span>`).join('') + `<span class="axt">SOL</span>`; };
+  CEIL = 400; relabel();
   $('#xlab').innerHTML = [0, 20, 40, 60, 80, 100].map(v => `<span style="left:${(PAD + (W - 2 * PAD) * v / 100) / W * 100}%">${v}%</span>`).join('');
   $('#stations').innerHTML = Array.from({ length: N }, (_, i) => `<span style="left:${(PAD + (W - 2 * PAD) * i / (N - 1)) / W * 100}%">${i + 1}</span>`).join('');
   $('#ticks').innerHTML = [.25, .5, .75, 1].map(v => { const y = H - PAD - (H - 2 * PAD) * v; return `<line x1="${PAD}" x2="${W - PAD}" y1="${y}" y2="${y}" stroke="#2f4a6d" stroke-opacity=".09" vector-effect="non-scaling-stroke"/>`; }).join('') + Array.from({ length: N }, (_, i) => { const x = PAD + (W - 2 * PAD) * i / (N - 1), major = i % 3 === 0; return `<line x1="${x}" x2="${x}" y1="${PAD - 10}" y2="${H - PAD}" stroke="#2f4a6d" stroke-opacity="${major ? .16 : .08}" ${major ? '' : 'stroke-dasharray="2 5"'} vector-effect="non-scaling-stroke"/>`; }).join('') + `<line x1="${PAD}" x2="${W - PAD}" y1="${H - PAD}" y2="${H - PAD}" stroke="#2f4a6d" stroke-opacity=".35" vector-effect="non-scaling-stroke"/>`;
@@ -141,7 +150,7 @@ function mountCanvas(root, { compact = false } = {}) {
     clearTimeout(quoteT); quoteT = setTimeout(() => quote(P, final), final ? 0 : 120);
   }
   async function quote(P, final) {
-    const r = await fetch('/api/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ points: P, taxStartBps: taxOn ? 9500 : 0, tax: TAX }) }); const q = await r.json();
+    const r = await fetch('/api/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ points: P, taxStartBps: taxOn ? 9500 : 0, tax: TAX, opts: { maxMcap: CEIL, preview: HOLDER, creatorPct: HOLDER ? 70 : 50 } }) }); const q = await r.json();
     if (q.error) { $('#err').textContent = q.error; return; } lastQ = q; $('#err').textContent = '';
     set('#k-grad', sol(q.toGraduateSol, 1)); set('#k-first', sol(q.first10Sol, 2)); set('#k-buy', q.oneSolBuysPct + '% of supply'); set('#k-mcap', `${q.startMcapSol} → ${q.gradMcapSol} SOL`); set('#k-shape', q.shape);
     if (final) { stepOn(2, true); stepOn(3, true); stepOn(4, true); }
@@ -204,13 +213,16 @@ function mountCanvas(root, { compact = false } = {}) {
   async function paintHold() {
     const t = $('#holdtxt'), b = $('#holdpct'); if (!t) return;
     let h = { live: !!S.ca, min: 1_000_000, pct: 70, held: 0, eligible: false };
-    if (wallet && S.ca) { try { h = await (await fetch(`/api/holder/${wallet}`)).json(); } catch {} }
+    if (wallet) { try { h = await (await fetch(`/api/holder/${wallet}`)).json(); } catch {} }
     const need = big(h.min);
-    if (!h.live) { t.textContent = `Hold ${need} $SPL when you launch and earn ${h.pct}% of trading fees instead of 50%. Live once $SPL launches.`; b.textContent = '50%'; }
-    else if (!wallet) t.textContent = `Hold ${need} $SPL when you launch and earn ${h.pct}% of trading fees instead of 50%. Connect to check.`;
-    else if (h.eligible) { t.textContent = `You hold ${big(h.held)} $SPL. This coin's config gives you ${h.pct}% of trading fees.`; b.textContent = h.pct + '%'; $('#hold').classList.add('on'); }
-    else { t.textContent = `You hold ${big(h.held)} $SPL. Hold ${need} to earn ${h.pct}% instead of 50%.`; b.textContent = '50%'; }
+    HOLDER = !!h.eligible; $('#hold').classList.toggle('on', HOLDER); b.textContent = HOLDER ? h.pct + '%' : '50%';
+    t.textContent = HOLDER ? `You hold ${big(h.held)} $SPL. Unlocked for this launch.` : !h.live ? `Hold ${need} $SPL when you launch to unlock these. Live once $SPL launches.` : !wallet ? `Hold ${need} $SPL when you launch to unlock these. Connect to check.` : `You hold ${big(h.held)} $SPL. Hold ${need} to unlock these.`;
+    TAXMAX = HOLDER ? 3600 : 1200; $('#taxend').textContent = `${TAXMAX / 60} min`; $('#taxmid').textContent = `${TAXMAX / 120} min`; $('#taxsub').textContent = `fee over the first ${TAXMAX / 60} minutes · 95% at open, 1% floor`;
+    document.querySelectorAll('#taxes .tx[data-t="long"]').forEach(x => (x.style.display = HOLDER ? '' : 'none'));
+    if (!HOLDER && CEIL !== 400) { CEIL = 400; document.querySelectorAll('#ceil button').forEach(x => x.classList.toggle('on', x.dataset.v === '400')); relabel(); }
+    paintTax(); if (pts) quote(pts.map(price), false);
   }
+  $('#ceil').onclick = e => { const v = +e.target.dataset.v; if (!v || !HOLDER) return; CEIL = v; document.querySelectorAll('#ceil button').forEach(x => x.classList.toggle('on', x === e.target)); relabel(); if (pts) quote(pts.map(price), false); };
   paintHold(); window.addEventListener('wallet', paintHold);
   // launch options
   $('#lpfee').onclick = e => { const v = e.target.dataset.v; if (!v) return; LPFEE = +v; document.querySelectorAll('#lpfee button').forEach(b => b.classList.toggle('on', b === e.target)); };
@@ -225,7 +237,7 @@ function mountCanvas(root, { compact = false } = {}) {
     if (!wallet && !(await connect())) return; updateLaunch(); if ($('#launch').disabled) return;
     const tkv = $('#tk').value.trim().toUpperCase(), nmv = $('#nm').value.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (['SPL', 'SPL16', 'SPLINE'].includes(tkv) || ['spl16', 'spl', 'spline', 'splinestandard', 'thesplinestandard'].includes(nmv)) { err.textContent = 'That name and ticker are reserved for the official SPL-16 coin.'; return; }
-    const body = { creator: wallet, opts: { lpFeeBps: LPFEE, volFee: VOLFEE }, twitter: $('#tw').value, name: $('#nm').value, ticker: $('#tk').value, description: $('#ds').value, points: pts.map(price), taxStartBps: taxOn ? 9500 : 0, tax: TAX, firstBuySol: Number($('#fb').value) || 0, logo: logoData };
+    const body = { creator: wallet, opts: { lpFeeBps: LPFEE, volFee: VOLFEE, maxMcap: CEIL }, twitter: $('#tw').value, name: $('#nm').value, ticker: $('#tk').value, description: $('#ds').value, points: pts.map(price), taxStartBps: taxOn ? 9500 : 0, tax: TAX, firstBuySol: Number($('#fb').value) || 0, logo: logoData };
     const b = $('#launch'); b.disabled = true; b.textContent = 'Preparing…';
     try {
       const r = await fetch('/api/launch/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json();
@@ -256,7 +268,7 @@ function mountCanvas(root, { compact = false } = {}) {
 const mcapOf = c => (c.price_sol ? c.price_sol * 1e9 : c.start_mcap_sol);
 // a coin card is a small plate: the drawn curve, with where the price is now
 function plate(c, W = 290, H = 128) {
-  const pad = 14, lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
+  const pad = 14, lo = S.config.startMcapSol, hi = hiOf(c);
   const X = f => pad + (W - 2 * pad) * f, Y = m => H - pad - (H - 2 * pad) * Math.max(0, Math.min(1, (m - lo) / (hi - lo)));
   const pts = c.points.map((v, i) => [X(i / (N - 1)), Y(lo + (hi - lo) * v)]);
   const d = 'M' + pts.map(p => p.map(n => n.toFixed(1)).join(',')).join(' L');
@@ -270,10 +282,11 @@ function plate(c, W = 290, H = 128) {
     <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5" class="now"/></svg>`;
 }
 function optTags(c) {
-  const o = c.opts_json ? JSON.parse(c.opts_json) : {}, t = c.tax_json ? JSON.parse(c.tax_json) : null, out = [];
+  const o = coinOpts(c), t = c.tax_json ? JSON.parse(c.tax_json) : null, out = [];
   if (c.tax_start_bps) out.push(`<i class="tg tax">tax 95→1% · ${mmss(t?.seconds || 600)}</i>`);
   if (o.devBuySol > 0) out.push(`<i class="tg">dev buy ${o.devBuySol} SOL</i>`);
-  if (o.creatorPct === 70) out.push(`<i class="tg hold">$SPL holder · 70% to creator</i>`);
+  if (o.holder) out.push(`<i class="tg hold">$SPL holder${o.creatorPct === 70 ? ' · 70% to creator' : ''}</i>`);
+  if (o.maxMcap === 1000) out.push(`<i class="tg">1,000 SOL board</i>`);
   if (o.lpFeeBps && o.lpFeeBps !== 100) out.push(`<i class="tg">${o.lpFeeBps / 100}% pool fee</i>`);
   if (o.volFee === false) out.push(`<i class="tg">no vol fee</i>`);
   if (c.twitter) out.push(`<i class="tg">X linked</i>`);
@@ -314,7 +327,7 @@ function sketchPad() {
 }
 // hover a plate to read the curve: what a buyer pays at any point of supply
 function scrub(el, c, W, H) {
-  if (!el) return; const pad = 14, lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
+  if (!el) return; const pad = 14, lo = S.config.startMcapSol, hi = hiOf(c);
   el.insertAdjacentHTML('beforeend', '<div class="scrub"><i></i><span></span></div>'); const sc = el.querySelector('.scrub'), lab = sc.querySelector('span');
   el.addEventListener('mousemove', e => {
     const r = el.getBoundingClientRect(); const f = Math.max(0, Math.min(1, ((e.clientX - r.left) / r.width * W - pad) / (W - 2 * pad)));
@@ -335,6 +348,7 @@ function home() {
     <div class="pad-c" id="pad"><svg viewBox="0 0 600 110" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">sketch one here</span></div>
     <a class="btn pri" id="padgo" href="/draw">Draw a curve</a>
   </section>
+  ${(() => { const f = S.coins.filter(c => coinOpts(c).holder && Date.now() - c.created_at < 3600e3).slice(0, 3); return f.length ? `<section class="feat5"><div class="f5h"><b><svg viewBox="0 0 100 100"><use href="#m16"/></svg>Featured</b><span>launched by $SPL holders · pinned for an hour</span></div><div class="pgrid">${f.map(coinCard).join('')}</div></section>` : ''; })()}
   <div class="bar5">
     <div class="tabs" id="sort">${[['mcap', 'Market cap'], ['recent', 'Newest'], ['volume', 'Volume'], ['progress', 'Closest to graduation']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label class="sel"><select id="shape"><option value="">All shapes</option>${shapes.map(k => `<option value="${k}" ${SHAPE === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
@@ -487,7 +501,7 @@ async function coinPage(mint) {
 }
 function paintLive({ coin: c, hist, trades }) {
   if (!$('#chart')) return;
-  const lo = S.config.startMcapSol, hi = S.config.maxMcapSol; const mc = mcapOf(c); const sold = c.sold_pct || 0; const pct = Math.round((c.progress || 0) * 100);
+  const lo = S.config.startMcapSol, hi = hiOf(c); const mc = mcapOf(c); const sold = c.sold_pct || 0; const pct = Math.round((c.progress || 0) * 100);
   $('#chart').innerHTML = chartSvg(c, hist);
   $('#pos').textContent = `${(sold * 100).toFixed(1)}% sold · ${mc.toFixed(1)} SOL mcap`;
   $('#mchart').innerHTML = mcapSvg(c, hist, trades);
@@ -506,7 +520,7 @@ function paintLive({ coin: c, hist, trades }) {
 }
 // The drawn curve, the path the price has travelled along it, and where it is now.
 function chartSvg(c, hist) {
-  const W = 800, H = 380, pad = 48, padB = 34, top = 24; const lo = S.config.startMcapSol, hi = S.config.maxMcapSol;
+  const W = 800, H = 380, pad = 48, padB = 34, top = 24; const lo = S.config.startMcapSol, hi = hiOf(c);
   const X = f => pad + (W - 2 * pad) * f, Y = m => H - padB - (H - padB - top) * Math.max(0, Math.min(1.04, (m - lo) / (hi - lo)));
   const curve = c.points.map((v, i) => [X(i / (N - 1)), Y(lo + (hi - lo) * v)]);
   const d = 'M' + curve.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' L');

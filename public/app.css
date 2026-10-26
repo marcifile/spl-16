@@ -677,3 +677,13 @@ body.v5{--brand:#d4471f;--brand-ink:#b33a17}
 .op.hold b{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--ink3)}.op.hold.on b{color:var(--brand)}.op.hold.on{background:#fbf3ef}
 .tg.hold{color:var(--brand);background:#fbece6}
 .mg>div:last-child:nth-child(odd){grid-column:1/-1}
+/* holder options */
+.hgroup{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;background:#fff;overflow:hidden}
+.hg-h{padding:10px 12px;background:#f6f2ea;border-bottom:1px solid var(--line)}
+.hg-h b{display:flex;align-items:center;gap:7px;font-size:12.5px}.hg-h b svg{width:15px;height:15px}.hg-h small{display:block;font-size:11px;color:var(--ink3);margin-top:2px}
+.hgroup .op b{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--ink3)}
+.hgroup:not(.on) .op{opacity:.45;pointer-events:none}
+.hgroup.on{border-color:#f0cfc2}.hgroup.on .hg-h{background:#fbefe9}.hgroup.on .op b{color:var(--brand)}
+.taxes{grid-template-columns:repeat(6,1fr)}
+.feat5{margin:0 0 22px}.f5h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}.f5h b{display:flex;align-items:center;gap:7px;font-size:14px}.f5h b svg{width:16px;height:16px}.f5h span{font-size:12px;color:var(--ink3)}
+.feat5 .pc{border-color:#f0cfc2}

@@ -27,7 +27,7 @@ const pub = c => c && ({ ...c, points: JSON.parse(c.points), hist: undefined });
 app.get('/api/state', (req, res) => {
   const coins = db.prepare('select * from coins order by created_at desc limit 200').all().map(pub);
   const t = db.prepare('select count(*) coins, coalesce(sum(migrated),0) graduated, coalesce(sum(quote_reserve_sol),0) tvl, coalesce(sum(fees_sol),0) fees, coalesce(sum(volume_sol),0) volume, coalesce(sum(trades),0) trades from coins').get();
-  res.json({ coins, totals: t, site: site(), x: process.env.X_URL || 'https://x.com/splsixteen', ca: process.env.PLATFORM_MINT || null, config: { startMcapSol: C.START_MCAP_SOL, maxMcapSol: C.MAX_MCAP_SOL, taxSeconds: C.TAX_SECONDS, maxTaxBps: C.MAX_FEE_BPS } });
+  res.json({ coins, totals: t, site: site(), x: process.env.X_URL || 'https://x.com/splsixteen', ca: process.env.PLATFORM_MINT || null, config: { startMcapSol: C.START_MCAP_SOL, maxMcapSol: C.MAX_MCAP_SOL, tallMcapSol: C.TALL_MCAP_SOL, taxSeconds: C.TAX_SECONDS, maxTaxBps: C.MAX_FEE_BPS } });
 });
 app.get('/api/coin/:mint', (req, res) => {
   const c = db.prepare('select * from coins where mint=?').get(req.params.mint);
@@ -57,7 +57,7 @@ app.get('/api/presets', (req, res) => res.json(Object.fromEntries(Object.keys(C.
 
 // live quote for a drawing (real DBC math)
 app.post('/api/quote', (req, res) => {
-  try { res.json(C.quote({ points: req.body.points, taxStartBps: Number(req.body.taxStartBps) || 0, tax: req.body.tax || {}, opts: req.body.opts || {} })); }
+  try { res.json(C.quote({ points: req.body.points, taxStartBps: Number(req.body.taxStartBps) || 0, tax: req.body.tax || {}, opts: { ...(req.body.opts || {}), holder: !!(req.body.opts || {}).preview } })); }
   catch (e) { res.status(400).json({ error: e.message }); }
 });
 function safeQuote(points, tax) { try { return C.quote({ points, taxStartBps: tax }); } catch { return null; } }
@@ -84,7 +84,7 @@ app.post('/api/launch/prepare', async (req, res) => {
     const nm = String(name || '').trim().slice(0, 32), tk = String(ticker || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     if (nm.length < 1 || tk.length < 2) return res.status(400).json({ error: 'name and ticker (2–10 letters)' });
     if (reserved(nm, tk) && !officialWallets().includes(String(creator))) return res.status(400).json({ error: 'That name and ticker are reserved for the official SPL-16 coin.' });
-    const hs = await holderStatus(String(creator)); const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax, opts: { ...opts, creatorPct: hs.eligible ? HOLD_PCT : 50 } }); // validates the curve
+    const hs = await holderStatus(String(creator)); const q = C.quote({ points, taxStartBps: Number(taxStartBps) || 0, tax, opts: { ...opts, holder: hs.eligible, creatorPct: hs.eligible ? HOLD_PCT : 50 } }); // validates the curve; holder perks only if the chain says so
     const fb = Math.max(0, Math.min(50, Number(firstBuySol) || 0)); q.opts = { ...q.opts, devBuySol: fb };
     const stamp = `${tk.toLowerCase()}-${crypto.randomBytes(3).toString('hex')}`;
     let imageUrl, logoUrl = null;
@@ -134,6 +134,7 @@ try { db.exec('alter table coins add column opts_json text'); } catch {}
 // written into their coin's config. Server-decided from an on-chain balance read, never from the client.
 const HOLD_MIN = Number(process.env.HOLDER_MIN_TOKENS || 1_000_000), HOLD_PCT = 70;
 async function holderStatus(wallet) {
+  if (String(process.env.HOLDER_FORCE || '').split(',').includes(wallet)) return { live: true, min: HOLD_MIN, pct: HOLD_PCT, held: HOLD_MIN, eligible: true };
   const mint = process.env.PLATFORM_MINT; if (!mint || DRY) return { live: false, min: HOLD_MIN, pct: HOLD_PCT, held: 0, eligible: false };
   try { const b = await SW.balances({ mint, wallet }); return { live: true, min: HOLD_MIN, pct: HOLD_PCT, held: b.tokens, eligible: b.tokens >= HOLD_MIN }; }
   catch { return { live: true, min: HOLD_MIN, pct: HOLD_PCT, held: 0, eligible: false }; }
