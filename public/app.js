@@ -64,7 +64,6 @@ function canvasHTML() {
       <div class="hint" id="hint"><b>Draw here, left to right</b>Release, and sixteen weights pin your line in place.</div>
       <div id="anns"></div><div class="toast" id="toast">price can't go down — that part was flattened</div>
     </div></div>
-    <div class="legend"><span><span class="duckleg">${DUCK}</span>16 points (ducks)</span><span><span class="sw strip"></span>the spline</span><span><span class="sw" style="background:var(--bad)"></span>flattened</span><span class="r mono">y · mcap SOL · x · supply sold</span></div>
   </div>
   <div class="card taxcard" id="taxcard">
     <div class="ch"><h2>Sniper tax <span class="sub" id="taxsub">fee over the first 20 minutes · 95% at open, 1% floor</span></h2><span class="mono k-tax" id="k-tax">—</span></div>
@@ -74,9 +73,8 @@ function canvasHTML() {
     <div class="card step" id="s1"><div class="sec">
       <div class="sh"><b>1</b><h3>Draw</h3><span class="shape-tag" id="k-shape" title="what your curve reads as">—</span></div>
       <div class="shapes" id="shapes"><div class="shape" data-s="custom" title="your own drawing"><svg viewBox="0 0 34 20" width="34" height="20"><path d="M4 16 C9 15 10 9 15 10 S22 13 24 7 29 3 30 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2.2 2.6"/></svg><i>custom</i></div>${Object.keys(PRESETS).map(k => `<div class="shape" data-s="${k}" title="${k}">${glyph(PRESETS[k], 34, 20)}<i>${k}</i></div>`).join('')}</div>
-      <div class="goals"><span class="gl-h">Or start from a goal</span><div class="gl" id="goals">${GOALS.map(g => `<button type="button" data-g="${g[0]}">${g[1]}</button>`).join('')}</div><p class="note" id="goalnote" style="display:none"></p></div>
-      <div class="ask"><span class="gl-h">Or describe your launch</span>
-        <div class="ask-row"><input id="askq" maxlength="300" placeholder="e.g. community coin, fair, graduate around 100 SOL, keep snipers out"><button type="button" class="btn sm" id="askgo">Suggest</button></div>
+      <div class="ask"><span class="gl-h">Or ask AI</span>
+        <div class="ask-row"><input id="askq" maxlength="300" placeholder="fair launch, hard for snipers…"><button type="button" class="btn sm" id="askgo">Suggest</button></div>
         <div class="ask-out" id="askout" style="display:none"></div></div>
       <div class="kvs">
         <div class="kv"><span>SOL to graduate</span><b id="k-grad">—</b></div>
@@ -94,7 +92,7 @@ function canvasHTML() {
       <div class="sh"><b>3</b><h3>Name</h3></div>
       <div class="body">
         <div class="grid2"><div class="field"><label>Name</label><input id="nm" placeholder="Ledge" maxlength="32"></div><div class="field"><label>Ticker</label><input id="tk" placeholder="LEDGE" maxlength="10" style="text-transform:uppercase"></div></div>
-        <div class="field"><label>Description <span class="opt">optional</span></label><textarea id="ds" maxlength="300" placeholder="One line"></textarea></div>
+        <div class="field"><label>About <span class="opt">optional · shown on your coin page · editable later</span></label><textarea id="ds" maxlength="600" placeholder="What is this coin? Why this curve?"></textarea></div>
         <div class="field"><label>Logo <span class="opt">optional · square · under 2 MB</span></label>
           <div class="logo-row"><div class="ic" id="pv"></div><div><input type="file" id="logo" accept="image/png,image/jpeg,image/webp,image/gif" hidden><button class="btn sm" id="logobtn" type="button">Upload image</button><button class="btn sm ghost" id="logoclr" type="button" style="display:none">Use curve</button><p class="note" style="margin-top:6px">Without a logo, the curve is the icon.</p></div></div>
         </div>
@@ -106,11 +104,13 @@ function canvasHTML() {
       <div class="body">
         <div class="opts">
           <div class="op"><span>Dev buy<small>bought in the launch transaction, before anyone else</small></span><div class="op-in"><input id="fb" type="number" min="0" max="50" step="0.05" placeholder="0"><em>SOL</em></div></div>
+        </div>
+        <details class="adv"><summary>Advanced</summary><div class="opts">
           <div class="op"><span>Pool fee after graduation<small>the DAMM v2 pool's swap fee</small></span><div class="seg2" id="lpfee">${[[25, '0.25%'], [100, '1%'], [200, '2%'], [400, '4%']].map(([v, t]) => `<button type="button" data-v="${v}" class="${v === 100 ? 'on' : ''}">${t}</button>`).join('')}</div></div>
           <div class="op"><span>Volatility fee<small>adds to the fee during sharp moves</small></span><label class="switch on" id="volsw"><i></i><span>on</span></label></div>
-        </div>
+        </div></details>
         <div class="hgroup" id="hold">
-          <div class="hg-h"><b><svg viewBox="0 0 100 100"><use href="#m16"/></svg>$SPL holder options</b><small id="holdtxt">Hold $SPL when you launch to unlock these.</small></div>
+          <div class="hg-h"><b><svg viewBox="0 0 100 100"><use href="#m16"/></svg>$SPL-16 holder options</b><small id="holdtxt">Hold $SPL-16 when you launch to unlock these.</small></div>
           <div class="op"><span>Creator fee share<small>written into this coin's config for good</small></span><b id="holdpct">50%</b></div>
           <div class="op"><span>Board ceiling<small>draw curves up to a 1,000 SOL market cap</small></span><div class="seg2" id="ceil"><button type="button" data-v="400" class="on">400</button><button type="button" data-v="1000">1,000</button></div></div>
           <div class="op"><span>Long sniper tax<small>a 60-minute window on the tax board</small></span><b class="hv">60m</b></div>
@@ -174,7 +174,7 @@ function mountCanvas(root, { compact = false } = {}) {
   const inkSeg = (a, b, w) => ink.insertAdjacentHTML('beforeend', `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke-width="${w.toFixed(2)}"/>`);
   const start = e => { if (e.button && e.button !== 0) return; drawing = true; ink.innerHTML = ''; ink.classList.remove('fade'); cv.classList.remove('settle'); raw = [toSvg(e)]; lastT = performance.now(); inkW = 4; pts = null; render(); e.preventDefault(); };
   const move = e => { if (!drawing) return; const p = toSvg(e); const q = raw[raw.length - 1]; if (p.x >= q.x) { const t = performance.now(), v = Math.hypot(p.x - q.x, p.y - q.y) / Math.max(1, t - lastT); lastT = t; inkW = inkW * .7 + Math.max(1.3, Math.min(5.5, 5.8 - v * 2.2)) * .3; inkSeg(q, p, inkW); raw.push(p); } $('#ghost').classList.add('off'); $('#hint').classList.add('off'); e.preventDefault(); };
-  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) { pts = snap(raw); cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); ink.classList.add('fade'); pick('custom'); document.querySelectorAll('#goals button').forEach(x => x.classList.remove('on')); $('#goalnote').style.display = 'none'; } raw = []; render(true); };
+  const end = () => { if (!drawing) return; drawing = false; if (raw.length > 3) { pts = snap(raw); cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); ink.classList.add('fade'); pick('custom'); } raw = []; render(true); };
   const nib = $('#nib');
   cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); nib.style.transform = `translate(${e.clientX - r.left}px,${e.clientY - r.top - 22}px)`; nib.classList.add('on'); nib.classList.toggle('down', drawing); });
   cv.addEventListener('mouseleave', () => nib.classList.remove('on'));
@@ -225,19 +225,12 @@ function mountCanvas(root, { compact = false } = {}) {
     try {
       const r = await fetch('/api/recommend', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: q }) }); const j = await r.json(); if (!r.ok) throw new Error(j.error);
       ink.innerHTML = ''; cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); fromPoints(j.points); pick(null);
-      setTax(j.tax, TAXP.find(t => t[0] === j.tax)?.[1]); document.querySelectorAll('#goals button').forEach(x => x.classList.remove('on')); $('#goalnote').style.display = 'none';
+      setTax(j.tax, TAXP.find(t => t[0] === j.tax)?.[1]);
       out.innerHTML = `<b>${esc(j.title)}</b><p>${esc(j.rationale)}</p><span class="mono">${j.stats.solToGraduate} SOL to graduate · first 10% ${j.stats.first10PctCostSol} SOL · tax ${esc(j.tax)}</span><small>Applied to the board. Redraw any part to adjust.</small>`;
     } catch (e) { out.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
     b.disabled = false; b.textContent = 'Suggest';
   };
   $('#askgo').onclick = ask; $('#askq').addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
-  $('#goals').onclick = e => {
-    const b = e.target.closest('button'); if (!b) return; const g = GOALS.find(x => x[0] === b.dataset.g);
-    const f = g[2] || (x => PRESETS.standard[Math.round(x * (N - 1))]); const P = Array.from({ length: N }, (_, i) => Math.min(1, Math.max(0, f(i / (N - 1)))));
-    ink.innerHTML = ''; cv.classList.remove('settle'); void cv.offsetWidth; cv.classList.add('settle'); fromPoints(P); pick(g[0] === 'balanced' ? 'standard' : null);
-    setTax(g[3], TAXP.find(t => t[0] === g[3])[1]);
-    document.querySelectorAll('#goals button').forEach(x => x.classList.toggle('on', x === b)); const n = $('#goalnote'); n.style.display = ''; n.textContent = g[4];
-  };
   setTax('off');
   // holder boost: read the creator's $SPL balance (the server decides the real share at launch)
   async function paintHold() {
@@ -246,7 +239,7 @@ function mountCanvas(root, { compact = false } = {}) {
     if (wallet) { try { h = await (await fetch(`/api/holder/${wallet}`)).json(); } catch {} }
     const need = big(h.min);
     HOLDER = !!h.eligible; $('#hold').classList.toggle('on', HOLDER); b.textContent = HOLDER ? h.pct + '%' : '50%';
-    t.textContent = HOLDER ? `You hold ${big(h.held)} $SPL. Unlocked for this launch.` : !h.live ? `Hold ${need} $SPL when you launch to unlock these. Live once $SPL launches.` : !wallet ? `Hold ${need} $SPL when you launch to unlock these. Connect to check.` : `You hold ${big(h.held)} $SPL. Hold ${need} to unlock these.`;
+    t.textContent = HOLDER ? `You hold ${big(h.held)} $SPL-16. Unlocked for this launch.` : !h.live ? `Hold ${need} $SPL-16 when you launch to unlock these. Live once $SPL-16 launches.` : !wallet ? `Hold ${need} $SPL-16 when you launch to unlock these. Connect to check.` : `You hold ${big(h.held)} $SPL-16. Hold ${need} to unlock these.`;
     TAXMAX = HOLDER ? 3600 : 1200; $('#taxend').textContent = `${TAXMAX / 60} min`; $('#taxmid').textContent = `${TAXMAX / 120} min`; $('#taxsub').textContent = `fee over the first ${TAXMAX / 60} minutes · 95% at open, 1% floor`;
     document.querySelectorAll('#taxes .tx[data-t="long"]').forEach(x => (x.style.display = HOLDER ? '' : 'none'));
     if (!HOLDER && CEIL !== 400) { CEIL = 400; document.querySelectorAll('#ceil button').forEach(x => x.classList.toggle('on', x.dataset.v === '400')); relabel(); }
@@ -315,7 +308,7 @@ function optTags(c) {
   const o = coinOpts(c), t = c.tax_json ? JSON.parse(c.tax_json) : null, out = [];
   if (c.tax_start_bps) out.push(`<i class="tg tax">tax 95→1% · ${mmss(t?.seconds || 600)}</i>`);
   if (o.devBuySol > 0) out.push(`<i class="tg">dev buy ${o.devBuySol} SOL</i>`);
-  if (o.holder) out.push(`<i class="tg hold">$SPL holder${o.creatorPct === 70 ? ' · 70% to creator' : ''}</i>`);
+  if (o.holder) out.push(`<i class="tg hold">$SPL-16 holder${o.creatorPct === 70 ? ' · 70% to creator' : ''}</i>`);
   if (o.maxMcap === 1000) out.push(`<i class="tg">1,000 SOL board</i>`);
   if (o.lpFeeBps && o.lpFeeBps !== 100) out.push(`<i class="tg">${o.lpFeeBps / 100}% pool fee</i>`);
   if (o.volFee === false) out.push(`<i class="tg">no vol fee</i>`);
@@ -378,7 +371,7 @@ function home() {
     <div class="pad-c" id="pad"><svg viewBox="0 0 600 110" preserveAspectRatio="none"><g id="padg"></g><path id="padink" fill="none"/><path id="padl" fill="none" pathLength="1"/></svg><div id="padd"></div><span class="pad-hint" id="padhint">sketch one here</span></div>
     <a class="btn pri" id="padgo" href="/draw">Draw a curve</a>
   </section>
-  ${(() => { const f = S.coins.filter(c => coinOpts(c).holder && Date.now() - c.created_at < 3600e3).slice(0, 3); return f.length ? `<section class="feat5"><div class="f5h"><b><svg viewBox="0 0 100 100"><use href="#m16"/></svg>Featured</b><span>launched by $SPL holders · pinned for an hour</span></div><div class="pgrid">${f.map(coinCard).join('')}</div></section>` : ''; })()}
+  ${(() => { const f = S.coins.filter(c => coinOpts(c).holder && Date.now() - c.created_at < 3600e3).slice(0, 3); return f.length ? `<section class="feat5"><div class="f5h"><b><svg viewBox="0 0 100 100"><use href="#m16"/></svg>Featured</b><span>launched by $SPL-16 holders · pinned for an hour</span></div><div class="pgrid">${f.map(coinCard).join('')}</div></section>` : ''; })()}
   <div class="bar5">
     <div class="tabs" id="sort">${[['mcap', 'Market cap'], ['recent', 'Newest'], ['volume', 'Volume'], ['progress', 'Closest to graduation']].map(([k, t]) => `<button data-k="${k}" class="${SORT === k ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label class="sel"><select id="shape"><option value="">All shapes</option>${shapes.map(k => `<option value="${k}" ${SHAPE === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
@@ -402,7 +395,7 @@ function home() {
         <div><b>Sniper tax you draw</b><p>Buys can pay up to 95% at open, decaying to 1% on the schedule you draw — fast, slow, linear or exponential. The scheduler can only lower it.</p></div>
         <div><b>Launch options</b><p>Dev buy in the launch transaction, the pool fee after graduation, and a volatility fee — all shown on the coin so buyers see the rules up front.</p></div>
         <div><b>Nothing to pull</b><p>The config is immutable, the mint is revoked, and liquidity locks for good when the coin graduates to DAMM v2.</p></div>
-        <div><b>Hold $SPL, earn more</b><p>Creators earn 50% of trading fees. Hold $SPL when you launch and your coin's config gives you 70% — enforced by Meteora for the life of the coin.</p></div>
+        <div><b>Hold $SPL-16, earn more</b><p>Creators earn 50% of trading fees. Hold $SPL-16 when you launch and your coin's config gives you 70% — enforced by Meteora for the life of the coin.</p></div>
       </div>
       <div class="mf"><a class="btn pri" href="/draw">Draw a curve</a><a class="btn" href="/standard">Read the standard</a></div>
     </div></div>`);
@@ -504,11 +497,12 @@ async function coinPage(mint) {
   <div class="card coinhead"><div class="ic">${coinIcon(c)}</div>
     <div><h1>${esc(c.name)} <span class="tk">$${esc(c.ticker)}</span></h1>
       <div class="meta"><span class="g">${glyph(c.points, 40, 20)}</span><span>${esc(c.shape)} curve</span><span>·</span><span>by <a href="https://solscan.io/account/${c.creator}" target="_blank" rel="noreferrer">${short(c.creator)}</a></span><span>·</span><span>${ago(c.created_at)} ago</span>${c.migrated ? '<span class="tag good">graduated</span>' : '<span class="tag">on the curve</span>'}${c.tax_start_bps ? '<span class="tag">sniper tax</span>' : ''}</div>
-      ${c.description ? `<p>${esc(c.description)}</p>` : ''}</div>
+      </div>
     <div class="acts">${real ? `<a class="btn pri" href="https://jup.ag/tokens/${c.mint}" target="_blank" rel="noreferrer">Buy on Jupiter</a><a class="btn" href="https://www.meteora.ag/dbc/${c.pool}" target="_blank" rel="noreferrer">Meteora</a><a class="btn" href="https://dexscreener.com/solana/${c.pool}" target="_blank" rel="noreferrer">Dexscreener</a>` : '<span class="tag">dry run</span>'}${c.twitter ? `<a class="btn" href="${esc(c.twitter)}" target="_blank" rel="noreferrer">X ↗</a>` : ''}<button class="btn" id="cpy">CA ${short(c.mint)}</button></div></div>
   <div class="two">
     <div>
-      <div class="card"><div class="ch"><h2>On the curve <span class="sub" id="pos">—</span></h2><span class="livetag" id="lt"><i></i>live</span></div><div class="chartbox" id="chart"></div></div>
+      <div class="card about" id="about"></div>
+      <div class="card" style="margin-top:20px"><div class="ch"><h2>On the curve <span class="sub" id="pos">—</span></h2><span class="livetag" id="lt"><i></i>live</span></div><div class="chartbox" id="chart"></div></div>
       <div class="card" style="margin-top:20px"><div class="ch"><h2>Market cap <span class="sub">SOL · every trade</span></h2></div><div class="chartbox sm" id="mchart"></div></div>
       <div class="card" style="margin-top:20px"><div class="ch"><h2>Trades <span class="sub" id="tcount"></span></h2></div><div id="trades"></div></div>
     </div>
@@ -523,11 +517,33 @@ async function coinPage(mint) {
   </div></div>`;
   $('#cpy').onclick = () => { navigator.clipboard.writeText(c.mint); $('#cpy').textContent = 'copied'; };
   const sh = $('#share'); if (sh) sh.onclick = () => { navigator.clipboard.writeText(`${location.origin}/c/${c.mint}`); sh.textContent = 'copied'; };
+  paintAbout(c); window.addEventListener('wallet', () => paintAbout(c));
   paintLive({ coin: c, hist: j.hist || [], trades: j.trades || [] });
   mountTrade(c, real, () => tick());
   async function tick() { return tick0(); }
   const tick0 = async () => { if (!location.pathname.endsWith(mint)) return; try { const r = await fetch(`/api/coin/${mint}/live`); if (r.ok) paintLive(await r.json()); } catch {} };
   clearInterval(LIVE); LIVE = setInterval(tick, 8000); tick();
+}
+// About: the creator's text, editable by the creator wallet (signed message, no transaction).
+function paintAbout(c) {
+  const el = $('#about'); if (!el || !location.pathname.endsWith(c.mint)) return; const mine = wallet && wallet === c.creator; const txt = c.description || '';
+  if (!txt && !mine) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = `<div class="ch"><h2>About</h2>${mine ? '<button class="btn sm ghost" id="abed">Edit</button>' : ''}</div><div class="sec">${txt ? `<p class="abt">${esc(txt)}</p>` : '<p class="note" style="margin:0">Tell people what this coin is and why you drew this curve. Only your wallet can edit it.</p>'}</div>`;
+  const b = $('#abed'); if (!b) return;
+  b.onclick = () => {
+    el.querySelector('.sec').innerHTML = `<textarea id="abtx" maxlength="600" rows="5" placeholder="What is this coin? Why this curve?">${esc(txt)}</textarea><div class="ab-row"><span class="note" id="abn">Signing a message is free. No transaction.</span><button class="btn sm ghost" id="abx">Cancel</button><button class="btn sm pri" id="absv">Save</button></div><div class="err" id="abe"></div>`;
+    $('#abx').onclick = () => paintAbout(c);
+    $('#absv').onclick = async () => {
+      const text = $('#abtx').value.replace(/\r/g, '').slice(0, 600).trim(); const ts = Date.now(); const sv = $('#absv'); sv.disabled = true; sv.textContent = 'Sign in wallet…';
+      try {
+        const msg = `spl-16.com · update About for ${c.mint}\nat ${ts}\n\n${text}`;
+        const r0 = await provider().signMessage(new TextEncoder().encode(msg), 'utf8'); const sig = btoa(String.fromCharCode(...(r0.signature || r0)));
+        const r = await fetch(`/api/coin/${c.mint}/about`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, ts, sig }) }); const j = await r.json(); if (!r.ok) throw new Error(j.error);
+        c.description = j.text; paintAbout(c);
+      } catch (e) { $('#abe').textContent = /reject|cancel/i.test(e.message) ? 'Cancelled in your wallet.' : e.message; sv.disabled = false; sv.textContent = 'Save'; }
+    };
+  };
 }
 function paintLive({ coin: c, hist, trades }) {
   if (!$('#chart')) return;

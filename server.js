@@ -11,7 +11,7 @@ import { putFile, putJson, assetsDir } from './lib/store.js';
 import * as L from './lib/live.js';
 import * as SW from './lib/swap.js';
 import * as R from './lib/recommend.js';
-import { Keypair } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -34,6 +34,22 @@ app.get('/api/coin/:mint', (req, res) => {
   const c = db.prepare('select * from coins where mint=?').get(req.params.mint);
   if (!c) return res.status(404).json({ error: 'no such coin' });
   res.json({ coin: pub(c), hist: JSON.parse(c.hist || '[]'), quote: safeQuote(JSON.parse(c.points), c.tax_start_bps), trades: db.prepare('select * from trades where mint=? order by at desc limit 100').all(c.mint) });
+});
+// A coin's About text. The creator can edit it after launch by signing a message with the creator wallet.
+const ED_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
+const aboutMsg = (mint, ts, text) => `spl-16.com · update About for ${mint}\nat ${ts}\n\n${text}`;
+app.post('/api/coin/:mint/about', (req, res) => {
+  try {
+    const c = db.prepare('select mint, creator from coins where mint=?').get(req.params.mint);
+    if (!c) return res.status(404).json({ error: 'no such coin' });
+    const text = String(req.body.text || '').replace(/\r/g, '').slice(0, 600).trim(); const ts = Number(req.body.ts);
+    if (!(Math.abs(Date.now() - ts) < 5 * 60_000)) return res.status(400).json({ error: 'signature expired, try again' });
+    const key = crypto.createPublicKey({ key: Buffer.concat([ED_SPKI, Buffer.from(new PublicKey(c.creator).toBytes())]), format: 'der', type: 'spki' });
+    const ok = crypto.verify(null, Buffer.from(aboutMsg(c.mint, ts, text)), key, Buffer.from(String(req.body.sig || ''), 'base64'));
+    if (!ok) return res.status(403).json({ error: 'only the creator wallet can edit this' });
+    db.prepare('update coins set description=? where mint=?').run(text, c.mint);
+    res.json({ ok: true, text });
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 app.get('/api/mine/:wallet', (req, res) => res.json({ coins: db.prepare('select * from coins where creator=? order by created_at desc').all(req.params.wallet).map(pub) }));
 const liveCache = new Map();
@@ -105,7 +121,7 @@ app.post('/api/launch/prepare', async (req, res) => {
       try { const sharp = (await import('sharp')).default; out = await sharp(buf).resize(512, 512, { fit: 'cover' }).png().toBuffer(); } catch { type = logo.slice(5, logo.indexOf(';')); }
       logoUrl = await putFile(`${stamp}-logo.png`, out, type); imageUrl = logoUrl;
     } else imageUrl = curveUrl;
-    const uri = await putJson(`${stamp}.json`, { name: nm, symbol: tk, description: description.slice(0, 300) || `${nm} — a hand-drawn ${q.shape} curve on spline (SPL-16).`, image: imageUrl, website: `${site()}/c/${mintAddr}`, ...(twUrl ? { twitter: twUrl } : {}), createdOn: site(), attributes: [{ trait_type: 'standard', value: 'SPL-16' }, { trait_type: 'shape', value: q.shape }, { trait_type: 'points', value: 16 }, { trait_type: 'curve', value: points.map(v => Math.round(Number(v) * 1000) / 1000).join(',') }], properties: { curve_image: curveUrl } });
+    const uri = await putJson(`${stamp}.json`, { name: nm, symbol: tk, description: description.slice(0, 600) || `${nm} — a hand-drawn ${q.shape} curve on spline (SPL-16).`, image: imageUrl, website: `${site()}/c/${mintAddr}`, ...(twUrl ? { twitter: twUrl } : {}), createdOn: site(), attributes: [{ trait_type: 'standard', value: 'SPL-16' }, { trait_type: 'shape', value: q.shape }, { trait_type: 'points', value: 16 }, { trait_type: 'curve', value: points.map(v => Math.round(Number(v) * 1000) / 1000).join(',') }], properties: { curve_image: curveUrl } });
     if (DRY) {
       const mint = mintAddr, pool = 'dry';
       record({ mint, pool, config: 'dry', name: nm, ticker: tk, description, image: imageUrl, logo: logoUrl, uri, creator, points, taxStartBps, q, sig: 'dry', twitter: twUrl });
@@ -131,7 +147,7 @@ app.post('/api/launch/confirm', async (req, res) => {
 });
 function record({ mint, pool, config, name, ticker, description, image, logo, uri, creator, points, taxStartBps, q, sig, twitter }) {
   db.prepare(`insert or ignore into coins (mint, pool, config, name, ticker, description, image, logo, metadata_uri, creator, points, shape, tax_start_bps, to_graduate_sol, start_mcap_sol, grad_mcap_sol, launch_sig, created_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(mint, pool, config, name, ticker, description || '', image, logo || null, uri, creator, JSON.stringify(points), q.shape, Number(taxStartBps) || 0, q.toGraduateSol, q.startMcapSol, q.gradMcapSol, sig, now());
+    .run(mint, pool, config, name, ticker, String(description || '').slice(0, 600), image, logo || null, uri, creator, JSON.stringify(points), q.shape, Number(taxStartBps) || 0, q.toGraduateSol, q.startMcapSol, q.gradMcapSol, sig, now());
   if (q.tax) db.prepare('update coins set tax_json=? where mint=?').run(JSON.stringify(q.tax), mint);
   if (twitter) db.prepare('update coins set twitter=? where mint=?').run(twitter, mint);
   if (q.opts) db.prepare('update coins set opts_json=? where mint=?').run(JSON.stringify(q.opts), mint);
@@ -156,7 +172,7 @@ function reserved(name, ticker) {
   return ['SPL', 'SPL16', 'SPLINE'].includes(t) || ['spl16', 'spl', 'spline', 'splinestandard', 'thesplinestandard'].includes(n);
 }
 // Coins removed from the site (duplicate test launches). Runs on every start; idempotent.
-const REMOVED = ['9QZF27jQrQsRNEQXByVqU2VhicjMK1x2Rk6nAoGmqCMn', 'QSUasoYpvc2T6VXhLbpNsg28WxEzPU61vC8yqjqeCcJ', '8z4mj9L851KFtxxmZ93do7o5m5pEgWbsrzrKyaqnHSJp', 'HNJFPPUCCk2RtpcNBHpYNCEqPBjhFUZQgiBtbR9ViHb9', '4dcs7prUKyPCekWAGmxtgiwtQYL2YsBAx57oeWmhfwZP'];
+const REMOVED = ['9QZF27jQrQsRNEQXByVqU2VhicjMK1x2Rk6nAoGmqCMn', 'QSUasoYpvc2T6VXhLbpNsg28WxEzPU61vC8yqjqeCcJ', '8z4mj9L851KFtxxmZ93do7o5m5pEgWbsrzrKyaqnHSJp', 'HNJFPPUCCk2RtpcNBHpYNCEqPBjhFUZQgiBtbR9ViHb9', '4dcs7prUKyPCekWAGmxtgiwtQYL2YsBAx57oeWmhfwZP', '9bbSdQUV7X4jsYzzF4ydxaae13UU4pP8JyWA8Auo8fPG', '7MrmzJzdJqfrshXkZF8VR6GExoJcjYzGVh4NN8qc4wGk'];
 try { const del = db.transaction(ms => { for (const m of ms) { db.prepare('delete from coins where mint=?').run(m); db.prepare('delete from trades where mint=?').run(m); } }); del(REMOVED); } catch (e) { console.error('remove', e.message); }
 try { for (const c of db.prepare('select mint, name, ticker, creator from coins').all()) if (reserved(c.name, c.ticker) && !officialWallets().includes(c.creator)) { db.prepare('delete from coins where mint=?').run(c.mint); db.prepare('delete from trades where mint=?').run(c.mint); } } catch (e) { console.error('reserved', e.message); }
 

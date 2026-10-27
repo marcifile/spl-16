@@ -694,3 +694,20 @@ body.v5{--brand:#d4471f;--brand-ink:#b33a17}
 .ask{margin-top:18px}.ask-row{display:flex;gap:6px}.ask-row input{flex:1;min-width:0;border:1px solid var(--line2);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;background:#fff;outline:none}.ask-row input:focus{border-color:var(--ink)}
 .ask-out{margin-top:10px;border:1px solid #f0cfc2;background:#fdf6f2;border-radius:8px;padding:10px 12px;font-size:12.5px}
 .ask-out b{font-size:13px}.ask-out p{margin:4px 0 6px;color:var(--ink2);line-height:1.5}.ask-out .mono{display:block;font-size:11px;color:var(--brand)}.ask-out small{display:block;margin-top:4px;color:var(--ink3);font-size:11px}.ask-out .dim{color:var(--ink3)}
+
+/* v9: declutter + About */
+.hgroup:not(.on) .op{display:none}
+.hgroup:not(.on) .hg-h{border-bottom:0}
+.adv{margin:0 0 12px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.adv summary{cursor:pointer;list-style:none;padding:10px 12px;font-size:12.5px;color:var(--ink3);display:flex;justify-content:space-between}
+.adv summary::-webkit-details-marker{display:none}
+.adv summary::after{content:'+';font-family:var(--mono)}
+.adv[open] summary::after{content:'−'}
+.adv[open] summary{border-bottom:1px solid var(--line)}
+.adv .opts{border:0;margin:0;border-radius:0}
+.about .sec{padding-top:4px}
+.about .abt{margin:0;white-space:pre-wrap;font-size:15px;line-height:1.6;color:var(--ink)}
+.about textarea{width:100%;background:#fff;border:1px solid var(--line2);font:inherit;font-size:14px;line-height:1.5;padding:10px 12px;border-radius:var(--r2);resize:vertical;outline:none}
+.about textarea:focus{border-color:var(--ink)}
+.ab-row{display:flex;gap:8px;align-items:center;margin-top:10px}.ab-row .note{flex:1;margin:0}
+.field textarea#ds{height:84px}
