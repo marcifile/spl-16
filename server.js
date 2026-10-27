@@ -172,7 +172,7 @@ function reserved(name, ticker) {
   return ['SPL', 'SPL16', 'SPLINE'].includes(t) || ['spl16', 'spl', 'spline', 'splinestandard', 'thesplinestandard'].includes(n);
 }
 // Coins removed from the site (duplicate test launches). Runs on every start; idempotent.
-const REMOVED = ['9QZF27jQrQsRNEQXByVqU2VhicjMK1x2Rk6nAoGmqCMn', 'QSUasoYpvc2T6VXhLbpNsg28WxEzPU61vC8yqjqeCcJ', '8z4mj9L851KFtxxmZ93do7o5m5pEgWbsrzrKyaqnHSJp', 'HNJFPPUCCk2RtpcNBHpYNCEqPBjhFUZQgiBtbR9ViHb9', '4dcs7prUKyPCekWAGmxtgiwtQYL2YsBAx57oeWmhfwZP', '9bbSdQUV7X4jsYzzF4ydxaae13UU4pP8JyWA8Auo8fPG', '7MrmzJzdJqfrshXkZF8VR6GExoJcjYzGVh4NN8qc4wGk'];
+const REMOVED = ['H77hg4pfN4mBU1ycCo7RvuYix3f8YGbbgR6JuD6njqFF', '9QZF27jQrQsRNEQXByVqU2VhicjMK1x2Rk6nAoGmqCMn', 'QSUasoYpvc2T6VXhLbpNsg28WxEzPU61vC8yqjqeCcJ', '8z4mj9L851KFtxxmZ93do7o5m5pEgWbsrzrKyaqnHSJp', 'HNJFPPUCCk2RtpcNBHpYNCEqPBjhFUZQgiBtbR9ViHb9', '4dcs7prUKyPCekWAGmxtgiwtQYL2YsBAx57oeWmhfwZP', '9bbSdQUV7X4jsYzzF4ydxaae13UU4pP8JyWA8Auo8fPG', '7MrmzJzdJqfrshXkZF8VR6GExoJcjYzGVh4NN8qc4wGk'];
 try { const del = db.transaction(ms => { for (const m of ms) { db.prepare('delete from coins where mint=?').run(m); db.prepare('delete from trades where mint=?').run(m); } }); del(REMOVED); } catch (e) { console.error('remove', e.message); }
 try { for (const c of db.prepare('select mint, name, ticker, creator from coins').all()) if (reserved(c.name, c.ticker) && !officialWallets().includes(c.creator)) { db.prepare('delete from coins where mint=?').run(c.mint); db.prepare('delete from trades where mint=?').run(c.mint); } } catch (e) { console.error('reserved', e.message); }
 
